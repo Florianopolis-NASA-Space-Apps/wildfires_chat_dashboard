@@ -601,8 +601,15 @@ export function ConsolePage() {
             <button className="close-button" onClick={closeLightbox}>
               <X />
             </button>
-            <iframe
+            {/* <iframe
               src="https://docs.google.com/presentation/d/e/2PACX-1vTAt9Nm2nNJb10eOdq_wcpM7IvLHe4azYY5qqazgSbwziSoeB52P6A8aJQEKSuRDy5tEhBbGbrzH84w/embed?start=false&loop=false&delayms=3000"
+              frameBorder="0"
+              width="960"
+              height="569"
+              allowFullScreen={true}
+            ></iframe> */}
+            <iframe
+              src="https://docs.google.com/presentation/d/e/2PACX-1vTezgMfwMSMOTV1xAERxRqVY9TMX-bF-45w2v5gP4jbs8Wy1t_H3u5kTwkxNfQFcA/embed?start=false&loop=false&delayms=60000"
               frameBorder="0"
               width="960"
               height="569"
