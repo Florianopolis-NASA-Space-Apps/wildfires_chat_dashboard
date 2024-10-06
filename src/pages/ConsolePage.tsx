@@ -121,6 +121,7 @@ export function ConsolePage() {
     lng: -122.418137,
   });
   const [marker, setMarker] = useState<Coordinates | null>(null);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
 
   /**
    * Utility for formatting the timing of logs
@@ -153,6 +154,15 @@ export function ConsolePage() {
       localStorage.setItem('tmp::voice_api_key', apiKey);
       window.location.reload();
     }
+  }, []);
+
+  const openSlideDeck = useCallback(() => {
+    setIsLightboxOpen(true);
+  }, []);
+
+  // Add this function to close the lightbox
+  const closeLightbox = useCallback(() => {
+    setIsLightboxOpen(false);
   }, []);
 
   /**
@@ -514,7 +524,7 @@ export function ConsolePage() {
             iconPosition="end"
             buttonStyle="flush"
             label={`Presentation Slide Deck`}
-            onClick={() => resetAPIKey()}
+            onClick={openSlideDeck}
           />
           {/* {!LOCAL_RELAY_SERVER_URL && (
             <Button
@@ -712,6 +722,22 @@ export function ConsolePage() {
           </div>
         </div>
       </div>
+      {isLightboxOpen && (
+        <div className="lightbox">
+          <div className="lightbox-content">
+            <button className="close-button" onClick={closeLightbox}>
+              <X />
+            </button>
+            <iframe
+              src="https://docs.google.com/presentation/d/e/2PACX-1vSEJgLvtwafg49CalC8kTsZON8j7bEYOh1rNUFSgyHGnBR18iCD1pdCKe_1X0VQkVoMAfvUtH4LkEeG/embed?start=false&loop=false&delayms=60000"
+              frameBorder="0"
+              width="960"
+              height="569"
+              allowFullScreen={true}
+            ></iframe>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
