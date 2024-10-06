@@ -40,45 +40,34 @@
     display: flex;
     overflow: hidden;
     margin-bottom: 24px;
-    gap: 24px; // Add gap between columns
-
-    .content-logs {
-      flex: 1; // Change to flex: 1 to make it grow and shrink equally
+    .content-block {
+      position: relative;
       display: flex;
       flex-direction: column;
-      overflow: hidden;
-      & > div {
+      max-height: 100%;
+      width: 100%;
+      .content-block-title {
+        flex-shrink: 0;
+        padding-top: 16px;
+        padding-bottom: 4px;
+        position: relative;
+      }
+      .content-block-body {
+        color: #6e6e7f;
+        position: relative;
         flex-grow: 1;
-      }
-      & > .content-actions {
-        flex-grow: 0;
-        flex-shrink: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 16px;
-      }
-      & > div.events {
-        overflow: hidden;
-      }
-      .events {
-        border-top: 1px solid #e7e7e7;
-      }
-      .conversation {
-        display: flex;
-        flex-shrink: 0;
-        width: 100%;
-        overflow: hidden;
-        height: 200px;
-        min-height: 0;
-        max-height: 200px;
-        border-top: 1px solid #e7e7e7;
+        padding: 8px 0px;
+        padding-top: 4px;
+        line-height: 1.2em;
+        overflow: auto;
+        &.full {
+          padding: 0px;
+        }
       }
     }
-
     .content-right {
-      flex: 1; // Change to flex: 1 to make it grow and shrink equally
-      width: auto; // Remove fixed width
+      width: 300px;
+      flex-shrink: 0;
       display: flex;
       flex-direction: column;
       margin-left: 24px;
@@ -120,6 +109,39 @@
           padding: 16px;
           margin-top: 56px;
         }
+      }
+    }
+    .content-logs {
+      flex-grow: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      & > div {
+        flex-grow: 1;
+      }
+      & > .content-actions {
+        flex-grow: 0;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+      }
+      & > div.events {
+        overflow: hidden;
+      }
+      .events {
+        border-top: 1px solid #e7e7e7;
+      }
+      .conversation {
+        display: flex;
+        flex-shrink: 0;
+        width: 100%;
+        overflow: hidden;
+        height: 200px;
+        min-height: 0;
+        max-height: 200px;
+        border-top: 1px solid #e7e7e7;
       }
     }
   }
