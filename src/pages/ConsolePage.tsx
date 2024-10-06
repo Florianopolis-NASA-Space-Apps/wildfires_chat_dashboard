@@ -537,18 +537,26 @@ export function ConsolePage() {
     <div data-component="ConsolePage">
       <div className="content-top">
         <div className="content-title">
-          <span style={{ fontSize: 50 }}>📡🔥</span>
-          <span style={{ fontSize: 18 }}>NASA Wildfires Chat Dashboard</span>
+          <img
+            src="/logo_fires_satellites.png"
+            style={{ width: imageSize, height: imageSize }}
+          />
+          <span style={{ fontSize: 30 }}>NASA Wildfires Chat Dashboard</span>
         </div>
         <div style={{ flexDirection: 'row' }}>
           <Button
             icon={ExternalLink}
             iconPosition="end"
             buttonStyle="flush"
+            style={{ fontSize: 18 }}
             label={`Presentation Slide Deck`}
             onClick={openSlideDeck}
           />
         </div>
+        <img
+          src="/nasa-logo.png"
+          style={{ width: imageSize, height: imageSize }}
+        />
       </div>
       <div className="content-main">
         <div className="content-right">
@@ -594,7 +602,7 @@ export function ConsolePage() {
               <X />
             </button>
             <iframe
-              src="https://docs.google.com/presentation/d/e/2PACX-1vSEJgLvtwafg49CalC8kTsZON8j7bEYOh1rNUFSgyHGnBR18iCD1pdCKe_1X0VQkVoMAfvUtH4LkEeG/embed?start=false&loop=false&delayms=60000"
+              src="https://docs.google.com/presentation/d/e/2PACX-1vTAt9Nm2nNJb10eOdq_wcpM7IvLHe4azYY5qqazgSbwziSoeB52P6A8aJQEKSuRDy5tEhBbGbrzH84w/embed?start=false&loop=false&delayms=3000"
               frameBorder="0"
               width="960"
               height="569"
@@ -606,3 +614,5 @@ export function ConsolePage() {
     </div>
   );
 }
+
+const imageSize = 130;
