@@ -25,6 +25,7 @@ import { Button } from '../components/button/Button';
 import './ConsolePage.scss';
 import { fetchObservations } from '../state/supabase/supabase';
 import { Toggle } from '../components/toggle/Toggle';
+import { IMapCoords, MBox } from '../components/mbox/MBox';
 
 /**
  * Type for result from get_weather() function call
@@ -122,6 +123,9 @@ export function ConsolePage() {
     lat: 37.775593,
     lng: -122.418137,
   });
+  const P1COORDS = { lat: -21.363987, lng: -47.3355236 };
+  const [mapPosition, setMapPosition] = useState<IMapCoords>(P1COORDS);
+
   const [marker, setMarker] = useState<Coordinates | null>(null);
 
   /**
@@ -446,6 +450,30 @@ export function ConsolePage() {
         return json;
       }
     );
+    client.addTool(
+      {
+        name: 'map_fly_to',
+        description:
+          'Sets the map location of the map displayed in the UI to the given long and lat',
+        parameters: {
+          type: 'object',
+          properties: {
+            lat: {
+              type: 'number',
+              description: 'Latitude',
+            },
+            lng: {
+              type: 'number',
+              description: 'Longitude',
+            },
+          },
+          required: ['lat', 'lng'],
+        },
+      },
+      async ({ lat, lng, location }: { [key: string]: any }) => {
+        setMapPosition({ lat, lng });
+      }
+    );
 
     // handle realtime events from client + server for event logging
     client.on('realtime.event', (realtimeEvent: RealtimeEvent) => {
@@ -515,15 +543,7 @@ export function ConsolePage() {
       <div className="content-main">
         <div className="content-right">
           <div className="content-block map" style={{ height: '100%' }}>
-            <iframe
-              title="Geomap"
-              src="https://florianopolis-nasa-space-apps.github.io/geomap/"
-              style={{
-                width: '100%',
-                border: 'none',
-                height: '100%',
-              }}
-            />
+            <MBox coords={mapPosition} />
           </div>
         </div>
         <div className="content-logs">
