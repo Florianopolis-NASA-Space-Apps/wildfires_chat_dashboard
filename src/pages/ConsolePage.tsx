@@ -23,6 +23,8 @@ import { X, Zap, ArrowUp, ArrowDown, ExternalLink } from 'react-feather';
 import { Button } from '../components/button/Button';
 
 import './ConsolePage.scss';
+import { fetchObservations } from '../state/supabase/supabase';
+import { Toggle } from '../components/toggle/Toggle';
 
 /**
  * Type for result from get_weather() function call
@@ -391,31 +393,24 @@ export function ConsolePage() {
     // Add tools
     client.addTool(
       {
-        name: 'set_memory',
-        description: 'Saves important data about the user into memory.',
+        name: 'get_observations',
+        description:
+          'Accepts a SQL query and returns a number, compatible with PostgreSQL and PostGIS with this schema: add a function get_observations that accepts a sql query and returns a number. The query should be compatible with postgresql and geogis. this is the schema: CREATE TABLE observations (id SERIAL PRIMARY KEY, latitude DOUBLE PRECISION NOT NULL, longitude DOUBLE PRECISION NOT NULL, brightness DOUBLE PRECISION NOT NULL, scan DOUBLE PRECISION, track DOUBLE PRECISION, acq_date DATE NOT NULL, acq_time TIME NOT NULL, satellite VARCHAR(10) NOT NULL, confidence INTEGER, version VARCHAR(20), bright_t31 DOUBLE PRECISION, frp DOUBLE PRECISION, daynight VARCHAR(1), location GEOGRAPHY(POINT, 4326)',
         parameters: {
           type: 'object',
+          required: ['query'],
           properties: {
-            key: {
+            query: {
               type: 'string',
               description:
-                'The key of the memory value. Always use lowercase and underscores, no other characters.',
-            },
-            value: {
-              type: 'string',
-              description: 'Value can be anything represented as a string',
+                'SQL query to retrieve observations from the database',
             },
           },
-          required: ['key', 'value'],
+          additionalProperties: false,
         },
       },
-      async ({ key, value }: { [key: string]: any }) => {
-        setMemoryKv((memoryKv) => {
-          const newKv = { ...memoryKv };
-          newKv[key] = value;
-          return newKv;
-        });
-        return { ok: true };
+      async ({ query }: { query: string }) => {
+        return fetchObservations(query);
       }
     );
     client.addTool(
@@ -514,7 +509,6 @@ export function ConsolePage() {
     <div data-component="ConsolePage">
       <div className="content-top">
         <div className="content-title">
-          {/* <img src="/openai-logomark.svg" /> */}
           <span style={{ fontSize: 50 }}>📡🔥</span>
           <span style={{ fontSize: 18 }}>NASA Wildfires Chat Dashboard</span>
         </div>
@@ -526,164 +520,30 @@ export function ConsolePage() {
             label={`Presentation Slide Deck`}
             onClick={openSlideDeck}
           />
-          {/* {!LOCAL_RELAY_SERVER_URL && (
-            <Button
-              icon={Edit}
-              iconPosition="end"
-              buttonStyle="flush"
-              label={`api key: ${apiKey.slice(0, 3)}...`}
-              onClick={() => resetAPIKey()}
-            />
-          )} */}
         </div>
       </div>
       <div className="content-main">
+        <div className="content-right">
+          <div className="content-block map" style={{ height: '100%' }}>
+            <iframe
+              title="Geomap"
+              src="https://florianopolis-nasa-space-apps.github.io/geomap/"
+              style={{
+                width: '100%',
+                border: 'none',
+                height: '100%',
+              }}
+            />
+          </div>
+        </div>
         <div className="content-logs">
-          <div className="content-block events">
-            <div className="visualization">
-              <div className="visualization-entry client">
-                <canvas ref={clientCanvasRef} />
-              </div>
-              <div className="visualization-entry server">
-                <canvas ref={serverCanvasRef} />
-              </div>
-            </div>
-            <div className="content-block-title">events</div>
-            <div className="content-block-body" ref={eventsScrollRef}>
-              {!realtimeEvents.length && `awaiting connection...`}
-              {realtimeEvents.map((realtimeEvent, i) => {
-                const count = realtimeEvent.count;
-                const event = { ...realtimeEvent.event };
-                if (event.type === 'input_audio_buffer.append') {
-                  event.audio = `[trimmed: ${event.audio.length} bytes]`;
-                } else if (event.type === 'response.audio.delta') {
-                  event.delta = `[trimmed: ${event.delta.length} bytes]`;
-                }
-                return (
-                  <div className="event" key={event.event_id}>
-                    <div className="event-timestamp">
-                      {formatTime(realtimeEvent.time)}
-                    </div>
-                    <div className="event-details">
-                      <div
-                        className="event-summary"
-                        onClick={() => {
-                          // toggle event details
-                          const id = event.event_id;
-                          const expanded = { ...expandedEvents };
-                          if (expanded[id]) {
-                            delete expanded[id];
-                          } else {
-                            expanded[id] = true;
-                          }
-                          setExpandedEvents(expanded);
-                        }}
-                      >
-                        <div
-                          className={`event-source ${
-                            event.type === 'error'
-                              ? 'error'
-                              : realtimeEvent.source
-                          }`}
-                        >
-                          {realtimeEvent.source === 'client' ? (
-                            <ArrowUp />
-                          ) : (
-                            <ArrowDown />
-                          )}
-                          <span>
-                            {event.type === 'error'
-                              ? 'error!'
-                              : realtimeEvent.source}
-                          </span>
-                        </div>
-                        <div className="event-type">
-                          {event.type}
-                          {count && ` (${count})`}
-                        </div>
-                      </div>
-                      {!!expandedEvents[event.event_id] && (
-                        <div className="event-payload">
-                          {JSON.stringify(event, null, 2)}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-          <div className="content-block conversation">
-            <div className="content-block-title">conversation</div>
-            <div className="content-block-body" data-conversation-content>
-              {!items.length && `awaiting connection...`}
-              {items.map((conversationItem, i) => {
-                return (
-                  <div className="conversation-item" key={conversationItem.id}>
-                    <div className={`speaker ${conversationItem.role || ''}`}>
-                      <div>
-                        {(
-                          conversationItem.role || conversationItem.type
-                        ).replaceAll('_', ' ')}
-                      </div>
-                      <div
-                        className="close"
-                        onClick={() =>
-                          deleteConversationItem(conversationItem.id)
-                        }
-                      >
-                        <X />
-                      </div>
-                    </div>
-                    <div className={`speaker-content`}>
-                      {/* tool response */}
-                      {conversationItem.type === 'function_call_output' && (
-                        <div>{conversationItem.formatted.output}</div>
-                      )}
-                      {/* tool call */}
-                      {!!conversationItem.formatted.tool && (
-                        <div>
-                          {conversationItem.formatted.tool.name}(
-                          {conversationItem.formatted.tool.arguments})
-                        </div>
-                      )}
-                      {!conversationItem.formatted.tool &&
-                        conversationItem.role === 'user' && (
-                          <div>
-                            {conversationItem.formatted.transcript ||
-                              (conversationItem.formatted.audio?.length
-                                ? '(awaiting transcript)'
-                                : conversationItem.formatted.text ||
-                                  '(item sent)')}
-                          </div>
-                        )}
-                      {!conversationItem.formatted.tool &&
-                        conversationItem.role === 'assistant' && (
-                          <div>
-                            {conversationItem.formatted.transcript ||
-                              conversationItem.formatted.text ||
-                              '(truncated)'}
-                          </div>
-                        )}
-                      {conversationItem.formatted.file && (
-                        <audio
-                          src={conversationItem.formatted.file.url}
-                          controls
-                        />
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
           <div className="content-actions">
-            {/* <Toggle
+            <Toggle
               defaultValue={false}
               labels={['manual', 'vad']}
               values={['none', 'server_vad']}
               onChange={(_, value) => changeTurnEndType(value)}
-            /> */}
+            />
             <div className="spacer" />
             {isConnected && canPushToTalk && (
               <Button
@@ -704,21 +564,6 @@ export function ConsolePage() {
                 isConnected ? disconnectConversation : connectConversation
               }
             />
-          </div>
-        </div>
-        <div className="content-right">
-          <div className="content-block map">
-            <div className="content-block-body full">
-              <iframe
-                title="Geomap"
-                src="https://florianopolis-nasa-space-apps.github.io/geomap/"
-                style={{
-                  width: '100%',
-                  height: '90vh',
-                  border: 'none',
-                }}
-              />
-            </div>
           </div>
         </div>
       </div>
