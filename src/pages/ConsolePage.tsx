@@ -566,8 +566,8 @@ export function ConsolePage() {
                       >
                         <div
                           className={`event-source ${event.type === 'error'
-                              ? 'error'
-                              : realtimeEvent.source
+                            ? 'error'
+                            : realtimeEvent.source
                             }`}
                         >
                           {realtimeEvent.source === 'client' ? (
@@ -692,35 +692,16 @@ export function ConsolePage() {
         </div>
         <div className="content-right">
           <div className="content-block map">
-            <div className="content-block-title">get_weather()</div>
-            <div className="content-block-title bottom">
-              {marker?.location || 'not yet retrieved'}
-              {!!marker?.temperature && (
-                <>
-                  <br />
-                  🌡️ {marker.temperature.value} {marker.temperature.units}
-                </>
-              )}
-              {!!marker?.wind_speed && (
-                <>
-                  {' '}
-                  🍃 {marker.wind_speed.value} {marker.wind_speed.units}
-                </>
-              )}
-            </div>
             <div className="content-block-body full">
-              {coords && (
-                <Map
-                  center={[coords.lat, coords.lng]}
-                  location={coords.location}
-                />
-              )}
-            </div>
-          </div>
-          <div className="content-block kv">
-            <div className="content-block-title">set_memory()</div>
-            <div className="content-block-body content-kv">
-              {JSON.stringify(memoryKv, null, 2)}
+              <iframe
+                title="Geomap"
+                src="https://florianopolis-nasa-space-apps.github.io/geomap/"
+                style={{
+                  width: '100%',
+                  height: '90vh',
+                  border: 'none',
+                }}
+              />
             </div>
           </div>
         </div>
