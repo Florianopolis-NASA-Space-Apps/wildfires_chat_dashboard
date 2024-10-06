@@ -35,21 +35,17 @@
 
   .content-main {
     flex-grow: 1;
-    flex-shrink: 1 !important;
     margin: 0px 16px;
     display: flex;
     overflow: hidden;
     margin-bottom: 24px;
-    gap: 24px; // Add gap between columns
+    gap: 24px;
+    flex-direction: column;
 
     .content-logs {
-      flex: 1; // Change to flex: 1 to make it grow and shrink equally
       display: flex;
       flex-direction: column;
-      overflow: hidden;
-      & > div {
-        flex-grow: 1;
-      }
+      height: 60px;
       & > .content-actions {
         flex-grow: 0;
         flex-shrink: 0;
@@ -78,10 +74,8 @@
 
     .content-right {
       flex: 1; // Change to flex: 1 to make it grow and shrink equally
-      width: auto; // Remove fixed width
-      display: flex;
       flex-direction: column;
-      margin-left: 24px;
+      height: 100px;
       gap: 24px;
       & > div {
         border-radius: 16px;
