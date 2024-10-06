@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Responsive Landing Page</title>
+    <!-- Import Google Icon Font -->
+    <link
+      href="https://fonts.googleapis.com/icon?family=Material+Icons"
+      rel="stylesheet"
+    />
+    <!-- Import Materialize CSS Framework -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css"
+    />
+
+    <style>
+      /* Custom Styles */
+      body {
+        background-color: #000; /* Background is black */
+        color: #fff; /* Text color is white */
+        margin: 0;
+        padding: 0;
+      }
+      .container {
+        padding: 50px 15px; /* Reduced top and bottom padding */
+        text-align: center;
+      }
+      h1 {
+        font-size: 4rem;
+        font-weight: bold; /* Text is bold */
+        margin-bottom: 30px;
+        opacity: 0; /* Start hidden */
+      }
+      .big-button {
+        opacity: 0; /* Start hidden */
+        margin-bottom: 30px;
+      }
+      .question-buttons {
+        opacity: 0; /* Start hidden */
+      }
+      .question-buttons .btn {
+        margin: 10px 5px;
+        font-size: 1.1rem; /* Adjust font size for readability */
+        padding: 0 1.5rem;
+        width: 100%;
+      }
+      @media (min-width: 600px) {
+        .question-buttons .btn {
+          width: auto;
+        }
+      }
+      /* Style for the small text */
+      .small-text {
+        opacity: 0; /* Start hidden */
+        margin-top: 20px;
+        font-size: 1.2rem;
+        font-weight: normal;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1 id="main-heading"></h1>
+
+      <a class="waves-effect waves-light btn-large big-button red"
+        >View Dashboard</a
+      >
+
+      <div class="question-buttons">
+        <a class="waves-effect waves-light btn teal lighten-2 question-btn"></a>
+        <a
+          class="waves-effect waves-light btn light-blue lighten-2 question-btn"
+        ></a>
+        <a class="waves-effect waves-light btn cyan lighten-2 question-btn"></a>
+        <a
+          class="waves-effect waves-light btn indigo lighten-2 question-btn"
+        ></a>
+        <a
+          class="waves-effect waves-light btn purple lighten-2 question-btn"
+        ></a>
+      </div>
+
+      <div id="small-text" class="small-text"></div>
+      <!-- Element for the small text -->
+    </div>
+
+    <!-- Import jQuery and Materialize JS -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- Import Materialize JS Framework -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+
+    <script>
+      $(document).ready(function () {
+        const API_KEY =
+          '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';
+        const API_URL = 'https://api.groq.com/openai/v1/chat/completions';
+
+        // Variable to store the result of the first prompt
+        let firstPromptResult = '';
+
+        // Function for typewriter effect
+        function typeWriter(element, text, delay, onComplete) {
+          let index = 0;
+          element.style.opacity = '1'; // Make sure the element is visible
+          function addLetter() {
+            if (index < text.length) {
+              element.textContent += text.charAt(index);
+              index++;
+              setTimeout(addLetter, delay);
+            } else if (onComplete) {
+              onComplete();
+            }
+          }
+          addLetter();
+        }
+
+        // First API call to get the <h1> content
+        fetch(API_URL, {
+          method: 'POST',
+          headers: {
+            Authorization: 'Bearer ' + API_KEY,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            messages: [
+              {
+                role: 'user',
+                content:
+                  "Create a 7 words impactful sentence on how many people are being affected by wildfires. Don't be unrealistic, use only real statistics AND NEVER ANSWER WITH MORE THAN 8 WORDS.",
+              },
+            ],
+            model: 'llama3-8b-8192',
+          }),
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            if (data.error) {
+              console.error('API Error:', data.error);
+              return;
+            }
+
+            console.log('First API Call Response:', data);
+
+            let content = data.choices[0].message.content.trim();
+            content = content.replace(/^"(.*)"$/, '$1'); // Remove quotes if any
+
+            firstPromptResult = content; // Store the result for later use
+
+            content += '*'; // Add an asterisk at the end
+
+            const mainHeading = document.getElementById('main-heading');
+            mainHeading.textContent = ''; // Ensure it's empty
+
+            // Start typewriter effect for the <h1>
+            typeWriter(mainHeading, content, 50, function () {
+              // After typewriter effect is done, fade in the big button
+              $('.big-button').fadeTo(1500, 1, function () {
+                // Now, send second API call for button texts
+                fetch(API_URL, {
+                  method: 'POST',
+                  headers: {
+                    Authorization: 'Bearer ' + API_KEY,
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    messages: [
+                      {
+                        role: 'user',
+                        content:
+                          "List only 5 small questions related to wildfires, without any additional explanation or introduction. Each question should be a common question on wildfire hazards, with maximum 8 words each. Use these phrases as examples: 'How can I check if there's fire near me?', 'What are the health issues related to fire?', 'What's the best way to protect myself from smoke'. Each question should be separated by a newline.",
+                      },
+                    ],
+                    model: 'llama3-8b-8192',
+                  }),
+                })
+                  .then((response) => response.json())
+                  .then((data) => {
+                    if (data.error) {
+                      console.error('API Error:', data.error);
+                      return;
+                    }
+
+                    console.log('Second API Call Response:', data);
+
+                    let content = data.choices[0].message.content.trim();
+                    content = content.replace(/^"(.*)"$/, '$1'); // Remove quotes if any
+
+                    // Split the content into 5 questions
+                    let questions = content
+                      .split('\n')
+                      .filter((q) => q.trim() !== '');
+
+                    // Assuming we have 5 buttons with class 'question-btn'
+                    const buttons = document.querySelectorAll('.question-btn');
+                    for (
+                      let i = 0;
+                      i < buttons.length && i < questions.length;
+                      i++
+                    ) {
+                      buttons[i].textContent = questions[i].trim();
+                    }
+
+                    // Fade in the question buttons
+                    $('.question-buttons').fadeTo(1500, 1);
+
+                    // Fetch the small text from the API, using the first prompt result
+                    fetch(API_URL, {
+                      method: 'POST',
+                      headers: {
+                        Authorization: 'Bearer ' + API_KEY,
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({
+                        messages: [
+                          {
+                            role: 'user',
+                            content:
+                              'Using real NASA open data about wildfires growth in recent years, create a small sentence that is directly related to the following phrase: "' +
+                              firstPromptResult +
+                              "\". The sentence should be concise, without any introductions or explanations, and end with 'According to NASA open data'. Do not include phrases like 'Here is' or 'According to the data'; just provide the sentence. The answer must be less than 300 characters.",
+                          },
+                        ],
+                        model: 'llama3-8b-8192',
+                      }),
+                    })
+                      .then((response) => response.json())
+                      .then((data) => {
+                        if (data.error) {
+                          console.error('API Error:', data.error);
+                          return;
+                        }
+
+                        console.log('Third API Call Response:', data);
+
+                        let smallTextContent =
+                          data.choices[0].message.content.trim();
+                        smallTextContent = smallTextContent.replace(
+                          /^"(.*)"$/,
+                          '$1'
+                        ); // Remove quotes if any
+
+                        // Insert an asterisk at the beginning
+                        smallTextContent = '*' + smallTextContent;
+
+                        const smallTextElement =
+                          document.getElementById('small-text');
+                        smallTextElement.textContent = ''; // Ensure it's empty
+
+                        // Typewriter effect for the small text
+                        typeWriter(smallTextElement, smallTextContent, 30);
+                      })
+                      .catch((error) => {
+                        console.error('Error in Third API Call:', error);
+                      });
+                  })
+                  .catch((error) => {
+                    console.error('Error in Second API Call:', error);
+                  });
+              });
+            });
+          })
+          .catch((error) => {
+            console.error('Error in First API Call:', error);
+          });
+      });
+    </script>
+  </body>
+</html>
