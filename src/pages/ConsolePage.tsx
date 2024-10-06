@@ -19,13 +19,10 @@ import { WavRecorder, WavStreamPlayer } from '../lib/wavtools/index.js';
 import { instructions } from '../utils/conversation_config.js';
 import { WavRenderer } from '../utils/wav_renderer';
 
-import { X, Edit, Zap, ArrowUp, ArrowDown } from 'react-feather';
+import { X, Zap, ArrowUp, ArrowDown, ExternalLink } from 'react-feather';
 import { Button } from '../components/button/Button';
-import { Toggle } from '../components/toggle/Toggle';
-import { Map } from '../components/Map';
 
 import './ConsolePage.scss';
-import { isJsxOpeningLikeElement } from 'typescript';
 
 /**
  * Type for result from get_weather() function call
@@ -507,11 +504,19 @@ export function ConsolePage() {
     <div data-component="ConsolePage">
       <div className="content-top">
         <div className="content-title">
-          <img src="/openai-logomark.svg" />
-          <span>📡 NASA Wildfires Chat Dashboard</span>
+          {/* <img src="/openai-logomark.svg" /> */}
+          <span style={{ fontSize: 50 }}>📡🔥</span>
+          <span style={{ fontSize: 18 }}>NASA Wildfires Chat Dashboard</span>
         </div>
-        <div className="content-api-key">
-          {!LOCAL_RELAY_SERVER_URL && (
+        <div style={{ flexDirection: 'row' }}>
+          <Button
+            icon={ExternalLink}
+            iconPosition="end"
+            buttonStyle="flush"
+            label={`Presentation Slide Deck`}
+            onClick={() => resetAPIKey()}
+          />
+          {/* {!LOCAL_RELAY_SERVER_URL && (
             <Button
               icon={Edit}
               iconPosition="end"
@@ -519,7 +524,7 @@ export function ConsolePage() {
               label={`api key: ${apiKey.slice(0, 3)}...`}
               onClick={() => resetAPIKey()}
             />
-          )}
+          )} */}
         </div>
       </div>
       <div className="content-main">
@@ -663,12 +668,12 @@ export function ConsolePage() {
             </div>
           </div>
           <div className="content-actions">
-            <Toggle
+            {/* <Toggle
               defaultValue={false}
               labels={['manual', 'vad']}
               values={['none', 'server_vad']}
               onChange={(_, value) => changeTurnEndType(value)}
-            />
+            /> */}
             <div className="spacer" />
             {isConnected && canPushToTalk && (
               <Button
