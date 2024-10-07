@@ -26,7 +26,7 @@ export const MBox = ({ coords }: { coords: IMapCoords }) => {
       mapRef.current.on('load', () => {
         mapRef.current?.addSource('wildfires', {
           type: 'geojson',
-          data: 'http://localhost:3000/brazil.geojson',
+          data: 'https://github.com/Florianopolis-NASA-Space-Apps/wildfires_chat_dashboard/blob/main/public/brazil.geojson?raw=true',
           cluster: true, // Enable clustering
           clusterMaxZoom: 14, // Max zoom to cluster points
           clusterRadius: 50, // Radius of each cluster in pixels
