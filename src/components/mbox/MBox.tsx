@@ -78,8 +78,8 @@ export const MBox = ({ coords }: { coords: IMapCoords }) => {
           source: 'wildfires',
           filter: ['!', ['has', 'point_count']], // Only display individual points
           paint: {
-            'circle-color': '#11b4da',
-            'circle-radius': 4,
+            'circle-color': '#e85607',
+            'circle-radius': 20,
             'circle-stroke-width': 1,
             'circle-stroke-color': '#fff',
           },
