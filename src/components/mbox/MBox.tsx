@@ -19,7 +19,7 @@ export const MBox = ({ coords }: { coords: IMapCoords }) => {
     if (mapContainerRef.current) {
       mapRef.current = new mapboxgl.Map({
         container: mapContainerRef.current,
-        style: 'mapbox://styles/mapbox/streets-v11',
+        style: 'mapbox://styles/mapbox/satellite-v9',
         center: [coords.lat, coords.lng],
         zoom: 10.12,
       });

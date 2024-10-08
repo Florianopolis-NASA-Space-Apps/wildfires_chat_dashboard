@@ -609,7 +609,9 @@ export function ConsolePage() {
             src="/logo_fires_satellites.png"
             style={{ width: imageSize, height: imageSize }}
           />
-          <span style={{ fontSize: 30 }}>NASA Wildfires Chat Dashboard</span>
+          <span style={{ fontSize: 30 }}>
+            GROW - Global Recovery and Observation of Wildfires
+          </span>
         </div>
         <div style={{ flexDirection: 'row' }}>
           <Button
