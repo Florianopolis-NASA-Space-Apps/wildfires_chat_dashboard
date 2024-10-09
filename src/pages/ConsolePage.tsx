@@ -607,18 +607,28 @@ export function ConsolePage() {
         <div className="content-title">
           <img
             src="/logo_fires_satellites.png"
-            style={{ width: imageSize, height: imageSize }}
+            style={{
+              width: imageSize,
+              height: imageSize,
+              marginLeft: -30,
+              marginRight: -10,
+            }}
           />
-          <span style={{ fontSize: 30 }}>
-            GROW - Global Recovery and Observation of Wildfires
-          </span>
+          <div>
+            <div>
+              <span style={{ fontSize: 50 }}>GROW</span>
+            </div>
+            <span style={{ fontSize: 20 }}>
+              Global Recovery and Observation of Wildfires
+            </span>
+          </div>
         </div>
         <div style={{ flexDirection: 'row' }}>
           <Button
             icon={ExternalLink}
             iconPosition="end"
             buttonStyle="flush"
-            style={{ fontSize: 18 }}
+            style={{ fontSize: 18, textAlign: 'right' }}
             label={`Presentation Slide Deck`}
             onClick={openSlideDeck}
           />
