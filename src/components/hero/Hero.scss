@@ -1,0 +1,51 @@
+.hero-container {
+  background-color: #000;
+  color: #fff;
+  padding: 50px 15px;
+  text-align: center;
+
+  h1 {
+    font-size: 4rem;
+    font-weight: bold;
+    margin-bottom: 30px;
+  }
+
+  .big-button {
+    margin-bottom: 30px;
+  }
+
+  .question-buttons {
+    .btn {
+      margin: 10px 5px;
+      font-size: 1.1rem;
+      padding: 0 1.5rem;
+      width: 100%;
+
+      @media (min-width: 600px) {
+        width: auto;
+      }
+    }
+
+    .color-0 {
+      background-color: #e85607;
+    }
+    .color-1 {
+      background-color: #e85607;
+    }
+    .color-2 {
+      background-color: #e85607;
+    }
+    .color-3 {
+      background-color: #e85607;
+    }
+    .color-4 {
+      background-color: #e85607;
+    }
+  }
+
+  .small-text {
+    margin-top: 20px;
+    font-size: 1.2rem;
+    font-weight: normal;
+  }
+}
