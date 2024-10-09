@@ -2,10 +2,9 @@ import React, { useState, useEffect } from 'react';
 import './Hero.scss';
 
 const API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const GROK_KEY = process.env.GROK_API_KEY;
+const GROK_KEY = process.env.REACT_APP_GROK_API_KEY;
 
 function HeroMessage() {
-  console.log('GROK_KEY:', GROK_KEY);
   const [mainHeading, setMainHeading] = useState('');
   const [questions, setQuestions] = useState<string[]>([]);
   const [smallText, setSmallText] = useState('');
@@ -82,43 +81,43 @@ function HeroMessage() {
         .filter((q: string) => q.trim() !== '');
       setQuestions(questions);
       setShowQuestions(true);
-      fetchSmallText(firstPromptResult);
+      //   fetchSmallText(firstPromptResult);
     } catch (error) {
       console.error('Error in Second API Call:', error);
     }
   };
 
-  const fetchSmallText = async (firstPromptResult: string) => {
-    try {
-      const response = await fetch(API_URL, {
-        method: 'POST',
-        headers: {
-          Authorization: 'Bearer ' + GROK_KEY,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          messages: [
-            {
-              role: 'user',
-              content: `Using real NASA open data about wildfires growth in recent years, create a small sentence that is directly related to the following phrase: "${firstPromptResult}". The sentence should be concise, without any introductions or explanations, and end with 'According to NASA open data'. Do not include phrases like 'Here is' or 'According to the data'; just provide the sentence. The answer must be less than 300 characters.`,
-            },
-          ],
-          model: 'llama3-8b-8192',
-        }),
-      });
-      const data = await response.json();
-      if (data.error) {
-        console.error('API Error:', data.error);
-        return;
-      }
-      let smallTextContent = data.choices[0].message.content.trim();
-      smallTextContent = smallTextContent.replace(/^"(.*)"$/, '$1');
-      smallTextContent = '*' + smallTextContent;
-      typeWriter(smallTextContent, setSmallText, 30);
-    } catch (error) {
-      console.error('Error in Third API Call:', error);
-    }
-  };
+  //   const fetchSmallText = async (firstPromptResult: string) => {
+  //     try {
+  //       const response = await fetch(API_URL, {
+  //         method: 'POST',
+  //         headers: {
+  //           Authorization: 'Bearer ' + GROK_KEY,
+  //           'Content-Type': 'application/json',
+  //         },
+  //         body: JSON.stringify({
+  //           messages: [
+  //             {
+  //               role: 'user',
+  //               content: `Using real NASA open data about wildfires growth in recent years, create a small sentence that is directly related to the following phrase: "${firstPromptResult}". The sentence should be concise, without any introductions or explanations, and end with 'According to NASA open data'. Do not include phrases like 'Here is' or 'According to the data'; just provide the sentence. The answer must be less than 300 characters.`,
+  //             },
+  //           ],
+  //           model: 'llama3-8b-8192',
+  //         }),
+  //       });
+  //       const data = await response.json();
+  //       if (data.error) {
+  //         console.error('API Error:', data.error);
+  //         return;
+  //       }
+  //       let smallTextContent = data.choices[0].message.content.trim();
+  //       smallTextContent = smallTextContent.replace(/^"(.*)"$/, '$1');
+  //       smallTextContent = '*' + smallTextContent;
+  //       typeWriter(smallTextContent, setSmallText, 30);
+  //     } catch (error) {
+  //       console.error('Error in Third API Call:', error);
+  //     }
+  //   };
 
   const typeWriter = (
     text: string,
@@ -156,7 +155,7 @@ function HeroMessage() {
           ))}
         </div>
       )}
-      <div className="small-text">{smallText}</div>
+      {/* <div className="small-text">{smallText}</div> */}
     </div>
   );
 }
