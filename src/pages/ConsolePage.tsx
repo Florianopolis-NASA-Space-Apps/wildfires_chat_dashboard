@@ -59,14 +59,15 @@ export function ConsolePage() {
    * Ask user for API Key
    * If we're using the local relay server, we don't need this
    */
-  const apiKey = LOCAL_RELAY_SERVER_URL
-    ? ''
-    : localStorage.getItem('tmp::voice_api_key') ||
-      prompt('OpenAI API Key') ||
-      '';
-  if (apiKey !== '') {
-    localStorage.setItem('tmp::voice_api_key', apiKey);
-  }
+  const apiKey = 'openAI package needs to be updated because it is unsupported now'
+  // const apiKey = LOCAL_RELAY_SERVER_URL
+  //   ? ''
+  //   : localStorage.getItem('tmp::voice_api_key') ||
+  //     prompt('OpenAI API Key') ||
+  //     '';
+  // if (apiKey !== '') {
+  //   localStorage.setItem('tmp::voice_api_key', apiKey);
+  // }
 
   /**
    * Instantiate:
