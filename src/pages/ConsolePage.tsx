@@ -27,6 +27,9 @@ import { fetchObservations } from '../state/supabase/supabase';
 import { Toggle } from '../components/toggle/Toggle';
 import { IMapCoords, MBox } from '../components/mbox/MBox';
 
+const SLIDE_DECK_LINK =
+  'https://docs.google.com/presentation/d/e/2PACX-1vTezgMfwMSMOTV1xAERxRqVY9TMX-bF-45w2v5gP4jbs8Wy1t_H3u5kTwkxNfQFcA/embed?start=false&loop=false&delayms=60000';
+
 /**
  * Type for result from get_weather() function call
  */
@@ -165,10 +168,6 @@ export function ConsolePage() {
     }
   }, []);
 
-  const openSlideDeck = useCallback(() => {
-    setIsLightboxOpen(true);
-  }, []);
-
   // Add this function to close the lightbox
   const closeLightbox = useCallback(() => {
     setIsLightboxOpen(false);
@@ -209,6 +208,29 @@ export function ConsolePage() {
       await wavRecorder.record((data) => client.appendInputAudio(data.mono));
     }
   }, []);
+
+  /**
+   * State to track window width
+   */
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+  const isLargeScreen = windowWidth >= 560;
+  /**
+   * Update window width on resize
+   */
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const openSlideDeck = useCallback(() => {
+    if (isLargeScreen) {
+      setIsLightboxOpen(true);
+    } else {
+      // open SLIDE_DECK_LINK in new tab
+      window.open(SLIDE_DECK_LINK, '_blank');
+    }
+  }, [isLargeScreen]);
 
   /**
    * Disconnect and reset conversation state
@@ -602,22 +624,6 @@ export function ConsolePage() {
   }, []);
 
   /**
-   * State to track window width
-   */
-  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
-
-  /**
-   * Update window width on resize
-   */
-  useEffect(() => {
-    const handleResize = () => setWindowWidth(window.innerWidth);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  const isSmallScreen = windowWidth >= 560;
-
-  /**
    * Render the application
    */
   return (
@@ -642,7 +648,7 @@ export function ConsolePage() {
             </span>
           </div>
         </div>
-        {isSmallScreen && (
+        {isLargeScreen && (
           <div style={{ flexDirection: 'row' }}>
             <Button
               icon={ExternalLink}
@@ -695,6 +701,16 @@ export function ConsolePage() {
             />
           </div>
         </div> */}
+        {!isLargeScreen && (
+          <Button
+            icon={ExternalLink}
+            iconPosition="end"
+            // buttonStyle="flush"
+            style={{ fontSize: 18, textAlign: 'center' }}
+            label={`Presentation Slide Deck`}
+            onClick={openSlideDeck}
+          />
+        )}
       </div>
       {isLightboxOpen && (
         <div className="lightbox">
@@ -710,7 +726,7 @@ export function ConsolePage() {
               allowFullScreen={true}
             ></iframe> */}
             <iframe
-              src="https://docs.google.com/presentation/d/e/2PACX-1vTezgMfwMSMOTV1xAERxRqVY9TMX-bF-45w2v5gP4jbs8Wy1t_H3u5kTwkxNfQFcA/embed?start=false&loop=false&delayms=60000"
+              src={SLIDE_DECK_LINK}
               frameBorder="0"
               width="960"
               height="569"
