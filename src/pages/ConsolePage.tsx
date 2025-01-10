@@ -695,16 +695,6 @@ export function ConsolePage() {
             />
           </div>
         </div> */}
-        {!isSmallScreen && (
-          <Button
-            icon={ExternalLink}
-            iconPosition="end"
-            // buttonStyle="flush"
-            style={{ fontSize: 18, textAlign: 'center' }}
-            label={`Presentation Slide Deck`}
-            onClick={openSlideDeck}
-          />
-        )}
       </div>
       {isLightboxOpen && (
         <div className="lightbox">
