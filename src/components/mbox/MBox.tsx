@@ -24,25 +24,89 @@ export const MBox = ({ coords }: { coords: IMapCoords }) => {
         zoom: 10.12,
       });
       mapRef.current.on('load', () => {
-        mapRef.current?.addSource('wildfires', {
+        // Add Brazil wildfires source
+        mapRef.current?.addSource('wildfires-brazil', {
           type: 'geojson',
-          data: '/brazil.geojson', // Updated to use local file
-          cluster: true, // Enable clustering
-          clusterMaxZoom: 14, // Max zoom to cluster points
-          clusterRadius: 50, // Radius of each cluster in pixels
+          data: '/brazil.geojson',
+          cluster: true,
+          clusterMaxZoom: 14,
+          clusterRadius: 50,
         });
 
+        // Add USA wildfires source
+        mapRef.current?.addSource('wildfires-usa', {
+          type: 'geojson',
+          data: '/USA.geojson',
+          cluster: true,
+          clusterMaxZoom: 14,
+          clusterRadius: 50,
+        });
+
+        // Add layers for Brazil wildfires
         mapRef.current?.addLayer({
-          id: 'clusters',
+          id: 'clusters-brazil',
           type: 'circle',
-          source: 'wildfires',
-          filter: ['has', 'point_count'], // Only display clusters
+          source: 'wildfires-brazil',
+          filter: ['has', 'point_count'],
           paint: {
             'circle-color': [
               'step',
               ['get', 'point_count'],
-              '#e22822', // Color for small clusters
-              100, // Change color for larger clusters
+              '#e22822',
+              100,
+              '#e85607',
+              750,
+              '#fede17',
+            ],
+            'circle-radius': [
+              'step',
+              ['get', 'point_count'],
+              20,
+              100,
+              30,
+              750,
+              40,
+            ],
+          },
+        });
+
+        mapRef.current?.addLayer({
+          id: 'cluster-count-brazil',
+          type: 'symbol',
+          source: 'wildfires-brazil',
+          filter: ['has', 'point_count'],
+          layout: {
+            'text-field': '{point_count_abbreviated}',
+            'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
+            'text-size': 12,
+          },
+        });
+
+        mapRef.current?.addLayer({
+          id: 'unclustered-point-brazil',
+          type: 'circle',
+          source: 'wildfires-brazil',
+          filter: ['!', ['has', 'point_count']],
+          paint: {
+            'circle-color': '#e85607',
+            'circle-radius': 20,
+            'circle-stroke-width': 1,
+            'circle-stroke-color': '#fff',
+          },
+        });
+
+        // Add layers for USA wildfires
+        mapRef.current?.addLayer({
+          id: 'clusters-usa',
+          type: 'circle',
+          source: 'wildfires-usa',
+          filter: ['has', 'point_count'],
+          paint: {
+            'circle-color': [
+              'step',
+              ['get', 'point_count'],
+              '#e22822',
+              100,
               '#e85607',
               750,
               '#fede17',
@@ -60,23 +124,22 @@ export const MBox = ({ coords }: { coords: IMapCoords }) => {
         });
 
         mapRef.current?.addLayer({
-          id: 'cluster-count',
+          id: 'cluster-count-usa',
           type: 'symbol',
-          source: 'wildfires',
+          source: 'wildfires-usa',
           filter: ['has', 'point_count'],
           layout: {
-            'text-field': '{point_count_abbreviated}', // Show the count
+            'text-field': '{point_count_abbreviated}',
             'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
             'text-size': 12,
           },
         });
 
-        // Add unclustered points layer
         mapRef.current?.addLayer({
-          id: 'unclustered-point',
+          id: 'unclustered-point-usa',
           type: 'circle',
-          source: 'wildfires',
-          filter: ['!', ['has', 'point_count']], // Only display individual points
+          source: 'wildfires-usa',
+          filter: ['!', ['has', 'point_count']],
           paint: {
             'circle-color': '#e85607',
             'circle-radius': 20,
