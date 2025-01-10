@@ -59,7 +59,8 @@ export function ConsolePage() {
    * Ask user for API Key
    * If we're using the local relay server, we don't need this
    */
-  const apiKey = 'openAI package needs to be updated because it is unsupported now'
+  const apiKey =
+    'openAI package needs to be updated because it is unsupported now';
   // const apiKey = LOCAL_RELAY_SERVER_URL
   //   ? ''
   //   : localStorage.getItem('tmp::voice_api_key') ||
@@ -601,6 +602,22 @@ export function ConsolePage() {
   }, []);
 
   /**
+   * State to track window width
+   */
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+
+  /**
+   * Update window width on resize
+   */
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const isSmallScreen = windowWidth >= 560;
+
+  /**
    * Render the application
    */
   return (
@@ -625,16 +642,18 @@ export function ConsolePage() {
             </span>
           </div>
         </div>
-        <div style={{ flexDirection: 'row' }}>
-          <Button
-            icon={ExternalLink}
-            iconPosition="end"
-            buttonStyle="flush"
-            style={{ fontSize: 18, textAlign: 'right' }}
-            label={`Presentation Slide Deck`}
-            onClick={openSlideDeck}
-          />
-        </div>
+        {isSmallScreen && (
+          <div style={{ flexDirection: 'row' }}>
+            <Button
+              icon={ExternalLink}
+              iconPosition="end"
+              buttonStyle="flush"
+              style={{ fontSize: 18, textAlign: 'right' }}
+              label={`Presentation Slide Deck`}
+              onClick={openSlideDeck}
+            />
+          </div>
+        )}
         <img
           src="/nasa-logo.png"
           style={{ width: imageSize, height: imageSize }}
@@ -676,6 +695,16 @@ export function ConsolePage() {
             />
           </div>
         </div> */}
+        {!isSmallScreen && (
+          <Button
+            icon={ExternalLink}
+            iconPosition="end"
+            // buttonStyle="flush"
+            style={{ fontSize: 18, textAlign: 'center' }}
+            label={`Presentation Slide Deck`}
+            onClick={openSlideDeck}
+          />
+        )}
       </div>
       {isLightboxOpen && (
         <div className="lightbox">
