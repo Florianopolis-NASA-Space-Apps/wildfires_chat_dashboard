@@ -159,7 +159,7 @@ export const MBox = ({ coords }: { coords: IMapCoords }) => {
     mapRef.current &&
       mapRef.current.flyTo({
         center: coords,
-        zoom: 10,
+        zoom: 2,
       });
   }, [coords]);
   return (

@@ -125,7 +125,8 @@ export function ConsolePage() {
     lng: -122.418137,
   });
   const P1COORDS = { lat: -21.363987, lng: -47.3355236 };
-  const [mapPosition, setMapPosition] = useState<IMapCoords>(P1COORDS);
+  const P2COORDS = { lat: -0.363987, lng: -60.3355236 };
+  const [mapPosition, setMapPosition] = useState<IMapCoords>(P2COORDS);
 
   const [marker, setMarker] = useState<Coordinates | null>(null);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
@@ -645,7 +646,7 @@ export function ConsolePage() {
             <MBox coords={mapPosition} />
           </div>
         </div>
-        <div className="content-logs">
+        {/* <div className="content-logs">
           <div className="content-actions">
             <Toggle
               defaultValue={false}
@@ -674,7 +675,7 @@ export function ConsolePage() {
               }
             />
           </div>
-        </div>
+        </div> */}
       </div>
       {isLightboxOpen && (
         <div className="lightbox">
