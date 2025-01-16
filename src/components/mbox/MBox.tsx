@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import mapboxgl from 'mapbox-gl';
 
 import 'mapbox-gl/dist/mapbox-gl.css';
@@ -10,9 +10,93 @@ export interface IMapCoords {
   lng: number;
 }
 
-export const MBox = ({ coords }: { coords: IMapCoords }) => {
+export const MBox = ({
+  coords,
+  dataMode,
+}: {
+  coords: IMapCoords;
+  dataMode: 'live' | 'historical';
+}) => {
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
+
+  const setMapData = useCallback(
+    (map: mapboxgl.Map, mode: 'live' | 'historical') => {
+      const brazilSource = map.getSource(
+        'wildfires-brazil'
+      ) as mapboxgl.GeoJSONSource;
+      const usaSource = map.getSource(
+        'wildfires-usa'
+      ) as mapboxgl.GeoJSONSource;
+      if (!brazilSource || !usaSource) return;
+
+      if (mode === 'live') {
+        brazilSource.setData(
+          'https://zernach.uc.r.appspot.com/api/wildfires?country=BRA'
+        );
+        usaSource.setData(
+          'https://zernach.uc.r.appspot.com/api/wildfires?country=USA'
+        );
+      } else {
+        brazilSource.setData('/brazil.geojson');
+        usaSource.setData('/USA.geojson');
+      }
+    },
+    []
+  );
+
+  const addClusterLayers = useCallback(
+    (map: mapboxgl.Map, sourceId: string, suffix: string) => {
+      map.addLayer({
+        id: `clusters-${suffix}`,
+        type: 'circle',
+        source: sourceId,
+        filter: ['has', 'point_count'],
+        paint: {
+          'circle-color': [
+            'step',
+            ['get', 'point_count'],
+            '#e85607',
+            100,
+            '#e22822',
+            750,
+            '#fede17',
+          ],
+          'circle-radius': [
+            'step',
+            ['get', 'point_count'],
+            20,
+            100,
+            30,
+            750,
+            40,
+          ],
+        },
+      });
+      map.addLayer({
+        id: `cluster-count-${suffix}`,
+        type: 'symbol',
+        source: sourceId,
+        filter: ['has', 'point_count'],
+        layout: {
+          'text-field': '{point_count_abbreviated}',
+          'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
+          'text-size': 12,
+        },
+      });
+      map.addLayer({
+        id: `unclustered-point-${suffix}`,
+        type: 'circle',
+        source: sourceId,
+        filter: ['!', ['has', 'point_count']],
+        paint: {
+          'circle-color': '#e85607',
+          'circle-radius': 12,
+        },
+      });
+    },
+    []
+  );
 
   useEffect(() => {
     mapboxgl.accessToken = MAPBOX_KEY;
@@ -23,11 +107,12 @@ export const MBox = ({ coords }: { coords: IMapCoords }) => {
         center: [coords.lat, coords.lng],
         zoom: 10.12,
       });
+
       mapRef.current.on('load', () => {
         // Add Brazil wildfires source
         mapRef.current?.addSource('wildfires-brazil', {
           type: 'geojson',
-          data: '/brazil.geojson',
+          data: 'brazil.geojson', // default to historical
           cluster: true,
           clusterMaxZoom: 14,
           clusterRadius: 50,
@@ -36,117 +121,16 @@ export const MBox = ({ coords }: { coords: IMapCoords }) => {
         // Add USA wildfires source
         mapRef.current?.addSource('wildfires-usa', {
           type: 'geojson',
-          data: '/USA.geojson',
+          data: 'USA.geojson', // default to historical
           cluster: true,
           clusterMaxZoom: 14,
           clusterRadius: 50,
         });
 
-        // Add layers for Brazil wildfires
-        mapRef.current?.addLayer({
-          id: 'clusters-brazil',
-          type: 'circle',
-          source: 'wildfires-brazil',
-          filter: ['has', 'point_count'],
-          paint: {
-            'circle-color': [
-              'step',
-              ['get', 'point_count'],
-              '#e22822',
-              100,
-              '#e85607',
-              750,
-              '#fede17',
-            ],
-            'circle-radius': [
-              'step',
-              ['get', 'point_count'],
-              20,
-              100,
-              30,
-              750,
-              40,
-            ],
-          },
-        });
-
-        mapRef.current?.addLayer({
-          id: 'cluster-count-brazil',
-          type: 'symbol',
-          source: 'wildfires-brazil',
-          filter: ['has', 'point_count'],
-          layout: {
-            'text-field': '{point_count_abbreviated}',
-            'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
-            'text-size': 12,
-          },
-        });
-
-        mapRef.current?.addLayer({
-          id: 'unclustered-point-brazil',
-          type: 'circle',
-          source: 'wildfires-brazil',
-          filter: ['!', ['has', 'point_count']],
-          paint: {
-            'circle-color': '#e85607',
-            'circle-radius': 20,
-            'circle-stroke-width': 1,
-            'circle-stroke-color': '#fff',
-          },
-        });
-
-        // Add layers for USA wildfires
-        mapRef.current?.addLayer({
-          id: 'clusters-usa',
-          type: 'circle',
-          source: 'wildfires-usa',
-          filter: ['has', 'point_count'],
-          paint: {
-            'circle-color': [
-              'step',
-              ['get', 'point_count'],
-              '#e22822',
-              100,
-              '#e85607',
-              750,
-              '#fede17',
-            ],
-            'circle-radius': [
-              'step',
-              ['get', 'point_count'],
-              20, // Radius for small clusters
-              100, // Change radius for larger clusters
-              30,
-              750,
-              40,
-            ],
-          },
-        });
-
-        mapRef.current?.addLayer({
-          id: 'cluster-count-usa',
-          type: 'symbol',
-          source: 'wildfires-usa',
-          filter: ['has', 'point_count'],
-          layout: {
-            'text-field': '{point_count_abbreviated}',
-            'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
-            'text-size': 12,
-          },
-        });
-
-        mapRef.current?.addLayer({
-          id: 'unclustered-point-usa',
-          type: 'circle',
-          source: 'wildfires-usa',
-          filter: ['!', ['has', 'point_count']],
-          paint: {
-            'circle-color': '#e85607',
-            'circle-radius': 20,
-            'circle-stroke-width': 1,
-            'circle-stroke-color': '#fff',
-          },
-        });
+        mapRef.current &&
+          addClusterLayers(mapRef.current, 'wildfires-brazil', 'brazil');
+        mapRef.current &&
+          addClusterLayers(mapRef.current, 'wildfires-usa', 'usa');
       });
     }
 
@@ -156,12 +140,19 @@ export const MBox = ({ coords }: { coords: IMapCoords }) => {
   }, []);
 
   useEffect(() => {
+    if (!mapRef.current || !mapRef.current.isStyleLoaded()) return;
+    setMapData(mapRef.current, dataMode);
+  }, [dataMode, setMapData]);
+
+  // Keep updating the map view based on coords
+  useEffect(() => {
     mapRef.current &&
       mapRef.current.flyTo({
         center: coords,
         zoom: 2,
       });
   }, [coords]);
+
   return (
     <div className="bg-red-400 h-full">
       <div

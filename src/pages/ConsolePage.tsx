@@ -134,6 +134,7 @@ export function ConsolePage() {
 
   const [marker, setMarker] = useState<Coordinates | null>(null);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const [dataMode, setDataMode] = useState<'live' | 'historical'>('historical');
 
   /**
    * Utility for formatting the timing of logs
@@ -668,12 +669,26 @@ export function ConsolePage() {
       <div className="content-main">
         <div className="content-right">
           <div className="content-block map" style={{ height: '100%' }}>
-            <MBox coords={mapPosition} />
+            <MBox coords={mapPosition} dataMode={dataMode} />
           </div>
         </div>
-        {/* <div className="content-logs">
+        <div className="content-logs">
           <div className="content-actions">
-            <Toggle
+            <p>January 6th - 10th 2025</p>
+            <button
+              className="px-4 py-2 bg-blue-500 text-white mr-2 rounded"
+              onClick={() => setDataMode('historical')}
+            >
+              {`HISTORICAL`}
+            </button>
+            <button
+              className="px-4 py-2 bg-blue-500 text-white mr-2 rounded"
+              onClick={() => setDataMode('live')}
+            >
+              {`LIVE`}
+            </button>
+            <p>{`${getDateRangeString()}`}</p>
+            {/* <Toggle
               defaultValue={false}
               labels={['manual', 'vad']}
               values={['none', 'server_vad']}
@@ -698,9 +713,9 @@ export function ConsolePage() {
               onClick={
                 isConnected ? disconnectConversation : connectConversation
               }
-            />
+            /> */}
           </div>
-        </div> */}
+        </div>
         {!isLargeScreen && (
           <Button
             icon={ExternalLink}
@@ -740,3 +755,65 @@ export function ConsolePage() {
 }
 
 const imageSize = 130;
+
+/**
+ * Returns a string with the correct ordinal suffix.
+ * e.g., 1 -> "1st", 2 -> "2nd", 3 -> "3rd", 4 -> "4th", ...
+ */
+function addOrdinalSuffix(day: any) {
+  const remainder10 = day % 10;
+  const remainder100 = day % 100;
+
+  if (remainder100 >= 11 && remainder100 <= 13) {
+    return day + 'th';
+  }
+
+  switch (remainder10) {
+    case 1:
+      return day + 'st';
+    case 2:
+      return day + 'nd';
+    case 3:
+      return day + 'rd';
+    default:
+      return day + 'th';
+  }
+}
+
+export function getDateRangeString() {
+  // Today’s date
+  const today = new Date();
+
+  // Clone the date, then subtract 4 days
+  const fourDaysAgo = new Date(today);
+  fourDaysAgo.setDate(today.getDate() - 4);
+
+  // Create options for month name
+  const monthOptions: Intl.DateTimeFormatOptions = {
+    month: 'long', // or 'short' | 'narrow' | 'numeric' | '2-digit'
+  };
+
+  // Get individual pieces: day, month, year
+  const startDay = fourDaysAgo.getDate();
+  const startMonth = fourDaysAgo.toLocaleString('en-US', monthOptions);
+  const startYear = fourDaysAgo.getFullYear();
+
+  const endDay = today.getDate();
+  const endMonth = today.toLocaleString('en-US', monthOptions);
+  const endYear = today.getFullYear();
+
+  // Build ordinal dates
+  const startDayOrdinal = addOrdinalSuffix(startDay);
+  const endDayOrdinal = addOrdinalSuffix(endDay);
+
+  // If the month and year are the same, simplify the display
+  if (startMonth === endMonth && startYear === endYear) {
+    return `${startMonth} ${startDayOrdinal} - ${endDayOrdinal} ${startYear}`;
+  }
+
+  // Otherwise, show full ranges
+  return (
+    `${startMonth} ${startDayOrdinal} ${startYear} - ` +
+    `${endMonth} ${endDayOrdinal} ${endYear}`
+  );
+}
