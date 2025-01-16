@@ -26,6 +26,7 @@ import './ConsolePage.scss';
 import { fetchObservations } from '../state/supabase/supabase';
 import { Toggle } from '../components/toggle/Toggle';
 import { IMapCoords, MBox } from '../components/mbox/MBox';
+import { Spinner } from '../components/spinner/Spinner';
 
 const SLIDE_DECK_LINK =
   'https://docs.google.com/presentation/d/e/2PACX-1vTezgMfwMSMOTV1xAERxRqVY9TMX-bF-45w2v5gP4jbs8Wy1t_H3u5kTwkxNfQFcA/embed?start=false&loop=false&delayms=60000';
@@ -135,6 +136,7 @@ export function ConsolePage() {
   const [marker, setMarker] = useState<Coordinates | null>(null);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [dataMode, setDataMode] = useState<'live' | 'historical'>('historical');
+  const [isLoading, setIsLoading] = useState(false);
 
   /**
    * Utility for formatting the timing of logs
@@ -669,25 +671,42 @@ export function ConsolePage() {
       <div className="content-main">
         <div className="content-right">
           <div className="content-block map" style={{ height: '100%' }}>
-            <MBox coords={mapPosition} dataMode={dataMode} />
+            <MBox
+              coords={mapPosition}
+              dataMode={dataMode}
+              setIsLoading={setIsLoading}
+            />
           </div>
         </div>
         <div className="content-logs">
           <div className="content-actions">
             <p>January 6th - 10th 2025</p>
             <button
-              className="px-4 py-2 bg-blue-500 text-white mr-2 rounded"
+              className={`px-4 py-2 mr-2 rounded ${
+                dataMode === 'historical'
+                  ? 'bg-red-500 text-white'
+                  : 'bg-gray-500 text-black'
+              }`}
               onClick={() => setDataMode('historical')}
             >
               {`HISTORICAL`}
             </button>
             <button
-              className="px-4 py-2 bg-blue-500 text-white mr-2 rounded"
+              className={`px-4 py-2 mr-2 rounded ${
+                dataMode === 'live'
+                  ? 'bg-red-500 text-white'
+                  : 'bg-gray-500 text-black'
+              }`}
               onClick={() => setDataMode('live')}
             >
               {`LIVE`}
             </button>
-            <p>{`${getDateRangeString()}`}</p>
+            <div>
+              <p style={{ minWidth: 180 }}>
+                {isLoading ? <Spinner /> : `${getDateRangeString()}`}
+              </p>
+            </div>
+
             {/* <Toggle
               defaultValue={false}
               labels={['manual', 'vad']}

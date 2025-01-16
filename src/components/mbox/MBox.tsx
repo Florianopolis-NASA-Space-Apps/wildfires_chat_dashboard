@@ -2,6 +2,7 @@ import { useRef, useEffect, useState, useCallback } from 'react';
 import mapboxgl from 'mapbox-gl';
 
 import 'mapbox-gl/dist/mapbox-gl.css';
+import { Spinner } from '../spinner/Spinner';
 
 const MAPBOX_KEY = process.env.REACT_APP_MAPBOX_KEY || '';
 
@@ -13,12 +14,16 @@ export interface IMapCoords {
 export const MBox = ({
   coords,
   dataMode,
+  setIsLoading,
 }: {
   coords: IMapCoords;
   dataMode: 'live' | 'historical';
+  setIsLoading: (loading: boolean) => void;
 }) => {
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const [brazilLiveData, setBrazilLiveData] = useState<any>(null);
+  const [usaLiveData, setUsaLiveData] = useState<any>(null);
 
   const setMapData = useCallback(
     (map: mapboxgl.Map, mode: 'live' | 'historical') => {
@@ -31,18 +36,32 @@ export const MBox = ({
       if (!brazilSource || !usaSource) return;
 
       if (mode === 'live') {
-        brazilSource.setData(
-          'https://zernach.uc.r.appspot.com/api/wildfires?country=BRA'
-        );
-        usaSource.setData(
-          'https://zernach.uc.r.appspot.com/api/wildfires?country=USA'
-        );
+        if (brazilLiveData && usaLiveData) {
+          brazilSource.setData(brazilLiveData);
+          usaSource.setData(usaLiveData);
+        } else {
+          setIsLoading(true);
+          fetch('https://zernach.uc.r.appspot.com/api/wildfires?country=BRA')
+            .then((res) => res.json())
+            .then((data) => {
+              setBrazilLiveData(data);
+              brazilSource.setData(data);
+              setIsLoading(false);
+            });
+          fetch('https://zernach.uc.r.appspot.com/api/wildfires?country=USA')
+            .then((res) => res.json())
+            .then((data) => {
+              setUsaLiveData(data);
+              usaSource.setData(data);
+              setIsLoading(false);
+            });
+        }
       } else {
         brazilSource.setData('/brazil.geojson');
         usaSource.setData('/USA.geojson');
       }
     },
-    []
+    [brazilLiveData, usaLiveData]
   );
 
   const addClusterLayers = useCallback(
