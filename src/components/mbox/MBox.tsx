@@ -24,6 +24,7 @@ export const MBox = ({
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const [brazilLiveData, setBrazilLiveData] = useState<any>(null);
   const [usaLiveData, setUsaLiveData] = useState<any>(null);
+  const [argentinaLiveData, setArgentinaLiveData] = useState<any>(null);
 
   const setMapData = useCallback(
     (map: mapboxgl.Map, mode: 'live' | 'historical') => {
@@ -33,12 +34,16 @@ export const MBox = ({
       const usaSource = map.getSource(
         'wildfires-usa'
       ) as mapboxgl.GeoJSONSource;
-      if (!brazilSource || !usaSource) return;
+      const argentinaSource = map.getSource(
+        'wildfires-argentina'
+      ) as mapboxgl.GeoJSONSource;
+      if (!brazilSource || !usaSource || !argentinaSource) return;
 
       if (mode === 'live') {
-        if (brazilLiveData && usaLiveData) {
+        if (brazilLiveData && usaLiveData && argentinaLiveData) {
           brazilSource.setData(brazilLiveData);
           usaSource.setData(usaLiveData);
+          argentinaSource.setData(argentinaLiveData);
         } else {
           setIsLoading(true);
           fetch('https://zernach.uc.r.appspot.com/api/wildfires?country=BRA')
@@ -55,13 +60,21 @@ export const MBox = ({
               usaSource.setData(data);
               setIsLoading(false);
             });
+          fetch('https://zernach.uc.r.appspot.com/api/wildfires?country=ARG')
+            .then((res) => res.json())
+            .then((data) => {
+              setArgentinaLiveData(data);
+              argentinaSource.setData(data);
+              setIsLoading(false);
+            });
         }
       } else {
         brazilSource.setData('/brazil.geojson');
         usaSource.setData('/USA.geojson');
+        argentinaSource.setData('/argentina.geojson');
       }
     },
-    [brazilLiveData, usaLiveData]
+    [brazilLiveData, usaLiveData, argentinaLiveData]
   );
 
   const addClusterLayers = useCallback(
@@ -146,10 +159,21 @@ export const MBox = ({
           clusterRadius: 50,
         });
 
+        // Add Argentina wildfires source
+        mapRef.current?.addSource('wildfires-argentina', {
+          type: 'geojson',
+          data: 'argentina.geojson', // default to historical
+          cluster: true,
+          clusterMaxZoom: 14,
+          clusterRadius: 50,
+        });
+
         mapRef.current &&
           addClusterLayers(mapRef.current, 'wildfires-brazil', 'brazil');
         mapRef.current &&
           addClusterLayers(mapRef.current, 'wildfires-usa', 'usa');
+        mapRef.current &&
+          addClusterLayers(mapRef.current, 'wildfires-argentina', 'argentina');
       });
     }
 

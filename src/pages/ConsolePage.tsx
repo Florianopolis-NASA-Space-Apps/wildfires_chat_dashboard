@@ -646,7 +646,7 @@ export function ConsolePage() {
             <div>
               <span style={{ fontSize: 50 }}>GROW</span>
             </div>
-            <span style={{ fontSize: 20 }}>
+            <span style={{ fontSize: windowWidth < 540 ? 14 : 20 }}>
               Global Recovery and Observation of Wildfires
             </span>
           </div>
@@ -706,8 +706,9 @@ export function ConsolePage() {
                 {isLoading ? <Spinner /> : `${getDateRangeString()}`}
               </p>
             </div>
-
-            {/* <Toggle
+          </div>
+        </div>
+        {/* <Toggle
               defaultValue={false}
               labels={['manual', 'vad']}
               values={['none', 'server_vad']}
@@ -733,8 +734,6 @@ export function ConsolePage() {
                 isConnected ? disconnectConversation : connectConversation
               }
             /> */}
-          </div>
-        </div>
         {!isLargeScreen && (
           <Button
             icon={ExternalLink}
