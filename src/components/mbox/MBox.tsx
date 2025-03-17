@@ -11,20 +11,22 @@ export interface IMapCoords {
   lng: number;
 }
 
+const P2COORDS = { lat: -0.363987, lng: -60.3355236 };
+
 export const MBox = ({
-  coords,
   dataMode,
   setIsLoading,
 }: {
-  coords: IMapCoords;
   dataMode: 'live' | 'historical';
   setIsLoading: (loading: boolean) => void;
 }) => {
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
-  const [brazilLiveData, setBrazilLiveData] = useState<any>(null);
-  const [usaLiveData, setUsaLiveData] = useState<any>(null);
-  const [argentinaLiveData, setArgentinaLiveData] = useState<any>(null);
+  const [liveData, setLiveData] = useState<{
+    BRA: any;
+    USA: any;
+    ARG: any;
+  } | null>(null);
 
   const setMapData = useCallback(
     (map: mapboxgl.Map, mode: 'live' | 'historical') => {
@@ -40,31 +42,27 @@ export const MBox = ({
       if (!brazilSource || !usaSource || !argentinaSource) return;
 
       if (mode === 'live') {
-        if (brazilLiveData && usaLiveData && argentinaLiveData) {
-          brazilSource.setData(brazilLiveData);
-          usaSource.setData(usaLiveData);
-          argentinaSource.setData(argentinaLiveData);
+        if (liveData) {
+          brazilSource.setData(liveData.BRA);
+          usaSource.setData(liveData.USA);
+          argentinaSource.setData(liveData.ARG);
         } else {
           setIsLoading(true);
-          fetch('https://zernach.uc.r.appspot.com/api/wildfires?country=BRA')
+          const countries = 'BRA,USA,ARG';
+          // const BASE_URL = 'http://127.0.0.1:5000';
+          const BASE_URL = 'https://zernach.uc.r.appspot.com';
+          fetch(`${BASE_URL}/api/wildfires?countries=${countries}`)
             .then((res) => res.json())
             .then((data) => {
-              setBrazilLiveData(data);
-              brazilSource.setData(data);
-              setIsLoading(false);
-            });
-          fetch('https://zernach.uc.r.appspot.com/api/wildfires?country=USA')
-            .then((res) => res.json())
-            .then((data) => {
-              setUsaLiveData(data);
-              usaSource.setData(data);
-              setIsLoading(false);
-            });
-          fetch('https://zernach.uc.r.appspot.com/api/wildfires?country=ARG')
-            .then((res) => res.json())
-            .then((data) => {
-              setArgentinaLiveData(data);
-              argentinaSource.setData(data);
+              const parsed = {
+                USA: JSON.parse(data.USA),
+                BRA: JSON.parse(data.BRA),
+                ARG: JSON.parse(data.ARG),
+              };
+              brazilSource.setData(parsed.BRA);
+              usaSource.setData(parsed.USA);
+              argentinaSource.setData(parsed.ARG);
+              setLiveData(parsed);
               setIsLoading(false);
             });
         }
@@ -74,7 +72,7 @@ export const MBox = ({
         argentinaSource.setData('/argentina.geojson');
       }
     },
-    [brazilLiveData, usaLiveData, argentinaLiveData]
+    [liveData]
   );
 
   const addClusterLayers = useCallback(
@@ -136,7 +134,7 @@ export const MBox = ({
       mapRef.current = new mapboxgl.Map({
         container: mapContainerRef.current,
         style: 'mapbox://styles/mapbox/satellite-v9',
-        center: [coords.lat, coords.lng],
+        center: [P2COORDS.lat, P2COORDS.lng],
         zoom: 10.12,
       });
 
@@ -185,16 +183,16 @@ export const MBox = ({
   useEffect(() => {
     if (!mapRef.current || !mapRef.current.isStyleLoaded()) return;
     setMapData(mapRef.current, dataMode);
-  }, [dataMode, setMapData]);
+  }, [dataMode]);
 
   // Keep updating the map view based on coords
   useEffect(() => {
     mapRef.current &&
       mapRef.current.flyTo({
-        center: coords,
+        center: [P2COORDS.lng, P2COORDS.lat],
         zoom: 2,
       });
-  }, [coords]);
+  }, []);
 
   return (
     <div className="bg-red-400 h-full">
