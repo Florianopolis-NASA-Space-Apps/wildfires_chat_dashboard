@@ -75,11 +75,16 @@ export function ConsolePage() {
               ? 'bg-red-500 text-white'
               : 'bg-gray-500 text-black'
           }`}
+          style={{ opacity: dataMode === 'historical' ? 1 : 0.6 }}
           onClick={() => setDataMode('historical')}
         >
           {`HISTORICAL`}
         </button>
-        <p>January 6th - 10th 2025</p>
+        <p
+          style={{ fontWeight: dataMode === 'historical' ? 'bold' : 'normal' }}
+        >
+          January 6th - 10th 2025
+        </p>
       </div>
       <div
         style={{
@@ -95,13 +100,19 @@ export function ConsolePage() {
               ? 'bg-red-500 text-white'
               : 'bg-gray-500 text-black'
           }`}
+          style={{ opacity: dataMode === 'live' ? 1 : 0.6 }}
           onClick={() => setDataMode('live')}
         >
           {`LIVE`}
         </button>
         <div>
-          <p style={{ minWidth: 180 }}>
-            {isLoading ? <Spinner /> : `${getDateRangeString()}`}
+          <p
+            style={{
+              minWidth: 180,
+              fontWeight: dataMode === 'live' ? 'bold' : 'normal',
+            }}
+          >
+            {isLoading ? <Spinner size={30} /> : `${getDateRangeString()}`}
           </p>
         </div>
       </div>
@@ -111,13 +122,18 @@ export function ConsolePage() {
   const LargeButtons = (
     <div className="content-logs">
       <div className="content-actions">
-        <p>January 6th - 10th 2025</p>
+        <p
+          style={{ fontWeight: dataMode === 'historical' ? 'bold' : 'normal' }}
+        >
+          January 6th - 10th 2025
+        </p>
         <button
           className={`px-4 py-2 mr-2 rounded ${
             dataMode === 'historical'
               ? 'bg-red-500 text-white'
               : 'bg-gray-500 text-black'
           }`}
+          style={{ opacity: dataMode === 'historical' ? 1 : 0.6 }}
           onClick={() => setDataMode('historical')}
         >
           {`HISTORICAL`}
@@ -128,12 +144,18 @@ export function ConsolePage() {
               ? 'bg-red-500 text-white'
               : 'bg-gray-500 text-black'
           }`}
+          style={{ opacity: dataMode === 'live' ? 1 : 0.6 }}
           onClick={() => setDataMode('live')}
         >
           {`LIVE`}
         </button>
         <div>
-          <p style={{ minWidth: 180 }}>
+          <p
+            style={{
+              minWidth: 180,
+              fontWeight: dataMode === 'live' ? 'bold' : 'normal',
+            }}
+          >
             {isLoading ? <Spinner /> : `${getDateRangeString()}`}
           </p>
         </div>
