@@ -181,10 +181,10 @@ export function ConsolePage() {
           />
           <div>
             <div>
-              <span style={{ fontSize: 50 }}>GROW</span>
+              <span style={{ fontSize: 50 }}>{'GROW'}</span>
             </div>
             <span style={{ fontSize: isLargeScreen ? 20 : 14 }}>
-              Global Recovery and Observation of Wildfires
+              {'Global Recovery and Observation of Wildfires'}
             </span>
           </div>
         </div>
@@ -208,7 +208,11 @@ export function ConsolePage() {
       <div className="content-main">
         <div className="content-right">
           <div className="content-block map" style={{ height: '100%' }}>
-            <MBox dataMode={dataMode} setIsLoading={setIsLoading} />
+            <MBox
+              isLargeScreen={isLargeScreen}
+              dataMode={dataMode}
+              setIsLoading={setIsLoading}
+            />
           </div>
         </div>
         {isLargeScreen ? LargeButtons : SmallButtons}
@@ -216,7 +220,6 @@ export function ConsolePage() {
           <Button
             icon={ExternalLink}
             iconPosition="end"
-            // buttonStyle="flush"
             style={{ fontSize: 18, textAlign: 'center' }}
             label={`Presentation Slide Deck`}
             onClick={openSlideDeck}

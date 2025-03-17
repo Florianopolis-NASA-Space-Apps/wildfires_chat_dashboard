@@ -12,12 +12,14 @@ export interface IMapCoords {
   lng: number;
 }
 
-const P2COORDS = { lat: -0.363987, lng: -60.3355236 };
+const P2COORDS = { lat: -10, lng: -78.3355236 };
 
 export const MBox = ({
   dataMode,
   setIsLoading,
+  isLargeScreen,
 }: {
+  isLargeScreen: boolean;
   dataMode: 'live' | 'historical';
   setIsLoading: (loading: boolean) => void;
 }) => {
@@ -187,7 +189,7 @@ export const MBox = ({
     mapRef.current &&
       mapRef.current.flyTo({
         center: [P2COORDS.lng, P2COORDS.lat],
-        zoom: 2,
+        zoom: isLargeScreen ? 2 : 1,
       });
   }, []);
 
