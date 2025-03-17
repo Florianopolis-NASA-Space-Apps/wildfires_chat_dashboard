@@ -42,7 +42,7 @@ export function ConsolePage() {
    * State to track window width
    */
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
-  const isLargeScreen = windowWidth >= 560;
+  const isLargeScreen = windowWidth >= 654;
   /**
    * Update window width on resize
    */
@@ -60,6 +60,86 @@ export function ConsolePage() {
       window.open(SLIDE_DECK_LINK, '_blank');
     }
   }, [isLargeScreen]);
+
+  const SmallButtons = (
+    <div
+      className={`content-actions`}
+      style={{ alignItems: 'center', alignSelf: 'center' }}
+    >
+      <div
+        style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}
+      >
+        <button
+          className={`px-4 py-2 mr-2 rounded ${
+            dataMode === 'historical'
+              ? 'bg-red-500 text-white'
+              : 'bg-gray-500 text-black'
+          }`}
+          onClick={() => setDataMode('historical')}
+        >
+          {`HISTORICAL`}
+        </button>
+        <p>January 6th - 10th 2025</p>
+      </div>
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'row',
+          alignItems: 'center',
+          marginTop: 10,
+        }}
+      >
+        <button
+          className={`px-4 py-2 mr-2 rounded ${
+            dataMode === 'live'
+              ? 'bg-red-500 text-white'
+              : 'bg-gray-500 text-black'
+          }`}
+          onClick={() => setDataMode('live')}
+        >
+          {`LIVE`}
+        </button>
+        <div>
+          <p style={{ minWidth: 180 }}>
+            {isLoading ? <Spinner /> : `${getDateRangeString()}`}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+
+  const LargeButtons = (
+    <div className="content-logs">
+      <div className="content-actions">
+        <p>January 6th - 10th 2025</p>
+        <button
+          className={`px-4 py-2 mr-2 rounded ${
+            dataMode === 'historical'
+              ? 'bg-red-500 text-white'
+              : 'bg-gray-500 text-black'
+          }`}
+          onClick={() => setDataMode('historical')}
+        >
+          {`HISTORICAL`}
+        </button>
+        <button
+          className={`px-4 py-2 mr-2 rounded ${
+            dataMode === 'live'
+              ? 'bg-red-500 text-white'
+              : 'bg-gray-500 text-black'
+          }`}
+          onClick={() => setDataMode('live')}
+        >
+          {`LIVE`}
+        </button>
+        <div>
+          <p style={{ minWidth: 180 }}>
+            {isLoading ? <Spinner /> : `${getDateRangeString()}`}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
 
   /**
    * Render the application
@@ -81,7 +161,7 @@ export function ConsolePage() {
             <div>
               <span style={{ fontSize: 50 }}>GROW</span>
             </div>
-            <span style={{ fontSize: windowWidth < 540 ? 14 : 20 }}>
+            <span style={{ fontSize: isLargeScreen ? 20 : 14 }}>
               Global Recovery and Observation of Wildfires
             </span>
           </div>
@@ -109,36 +189,7 @@ export function ConsolePage() {
             <MBox dataMode={dataMode} setIsLoading={setIsLoading} />
           </div>
         </div>
-        <div className="content-logs">
-          <div className="content-actions">
-            <p>January 6th - 10th 2025</p>
-            <button
-              className={`px-4 py-2 mr-2 rounded ${
-                dataMode === 'historical'
-                  ? 'bg-red-500 text-white'
-                  : 'bg-gray-500 text-black'
-              }`}
-              onClick={() => setDataMode('historical')}
-            >
-              {`HISTORICAL`}
-            </button>
-            <button
-              className={`px-4 py-2 mr-2 rounded ${
-                dataMode === 'live'
-                  ? 'bg-red-500 text-white'
-                  : 'bg-gray-500 text-black'
-              }`}
-              onClick={() => setDataMode('live')}
-            >
-              {`LIVE`}
-            </button>
-            <div>
-              <p style={{ minWidth: 180 }}>
-                {isLoading ? <Spinner /> : `${getDateRangeString()}`}
-              </p>
-            </div>
-          </div>
-        </div>
+        {isLargeScreen ? LargeButtons : SmallButtons}
         {!isLargeScreen && (
           <Button
             icon={ExternalLink}
