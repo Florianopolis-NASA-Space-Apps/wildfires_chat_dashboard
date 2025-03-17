@@ -3,6 +3,7 @@ import mapboxgl from 'mapbox-gl';
 
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { Spinner } from '../spinner/Spinner';
+import { apiWildfires } from '../../utils/apiWildfires';
 
 const MAPBOX_KEY = process.env.REACT_APP_MAPBOX_KEY || '';
 
@@ -29,7 +30,7 @@ export const MBox = ({
   } | null>(null);
 
   const setMapData = useCallback(
-    (map: mapboxgl.Map, mode: 'live' | 'historical') => {
+    async (map: mapboxgl.Map, mode: 'live' | 'historical') => {
       const brazilSource = map.getSource(
         'wildfires-brazil'
       ) as mapboxgl.GeoJSONSource;
@@ -49,22 +50,18 @@ export const MBox = ({
         } else {
           setIsLoading(true);
           const countries = 'BRA,USA,ARG';
-          // const BASE_URL = 'http://127.0.0.1:5000';
-          const BASE_URL = 'https://zernach.uc.r.appspot.com';
-          fetch(`${BASE_URL}/api/wildfires?countries=${countries}`)
-            .then((res) => res.json())
-            .then((data) => {
-              const parsed = {
-                USA: JSON.parse(data.USA),
-                BRA: JSON.parse(data.BRA),
-                ARG: JSON.parse(data.ARG),
-              };
-              brazilSource.setData(parsed.BRA);
-              usaSource.setData(parsed.USA);
-              argentinaSource.setData(parsed.ARG);
-              setLiveData(parsed);
-              setIsLoading(false);
-            });
+          const localFetch = await apiWildfires({
+            countries,
+            numberOfDays: '4',
+          });
+          if (!localFetch) {
+            return;
+          }
+          brazilSource.setData(localFetch.BRA);
+          usaSource.setData(localFetch.USA);
+          argentinaSource.setData(localFetch.ARG);
+          setLiveData(localFetch);
+          setIsLoading(false);
         }
       } else {
         brazilSource.setData('/brazil.geojson');
