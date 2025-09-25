@@ -2,6 +2,7 @@ import { useRef, useEffect, useState, useCallback } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { apiWildfires } from '../../utils/apiWildfires';
+import { readCountriesGeoJson } from '../../utils/wildfireDb';
 
 const MAPBOX_KEY = process.env.REACT_APP_MAPBOX_KEY || '';
 
@@ -23,11 +24,10 @@ export const MBox = ({
 }) => {
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
-  const [liveData, setLiveData] = useState<{
-    BRA: any;
-    USA: any;
-    ARG: any;
-  } | null>(null);
+  const [liveData, setLiveData] = useState<Record<
+    'BRA' | 'USA' | 'ARG',
+    any
+  > | null>(null);
 
   const setMapData = useCallback(
     async (map: mapboxgl.Map, mode: 'live' | 'historical') => {
@@ -44,24 +44,57 @@ export const MBox = ({
 
       if (mode === 'live') {
         if (liveData) {
-          brazilSource.setData(liveData.BRA);
-          usaSource.setData(liveData.USA);
-          argentinaSource.setData(liveData.ARG);
-        } else {
-          setIsLoading(true);
-          const countries = 'BRA,USA,ARG';
-          const localFetch = await apiWildfires({
-            countries,
-            numberOfDays: '4',
-          });
-          if (!localFetch) {
-            return;
+          if (liveData.BRA && liveData.BRA.type === 'FeatureCollection') {
+            brazilSource.setData(liveData.BRA);
           }
-          brazilSource.setData(localFetch.BRA);
-          usaSource.setData(localFetch.USA);
-          argentinaSource.setData(localFetch.ARG);
-          setLiveData(localFetch);
-          setIsLoading(false);
+          if (liveData.USA && liveData.USA.type === 'FeatureCollection') {
+            usaSource.setData(liveData.USA);
+          }
+          if (liveData.ARG && liveData.ARG.type === 'FeatureCollection') {
+            argentinaSource.setData(liveData.ARG);
+          }
+        } else {
+          const countryCodes = ['BRA', 'USA', 'ARG'];
+          setIsLoading(true);
+          try {
+            const cached = await readCountriesGeoJson(countryCodes);
+            console.log('cached', cached);
+            const cachedBrazil = cached['BRA'];
+            const cachedUsa = cached['USA'];
+            const cachedArgentina = cached['ARG'];
+
+            if (cachedBrazil && cachedBrazil.type === 'FeatureCollection') {
+              brazilSource.setData(cachedBrazil);
+            }
+            if (cachedUsa && cachedUsa.type === 'FeatureCollection') {
+              usaSource.setData(cachedUsa);
+            }
+            if (
+              cachedArgentina &&
+              cachedArgentina.type === 'FeatureCollection'
+            ) {
+              argentinaSource.setData(cachedArgentina);
+            }
+
+            await apiWildfires({
+              countries: countryCodes.join(','),
+              numberOfDays: '4',
+            });
+
+            const refreshed = await readCountriesGeoJson(countryCodes);
+            if (refreshed.BRA && refreshed.BRA.type === 'FeatureCollection') {
+              brazilSource.setData(refreshed.BRA);
+            }
+            if (refreshed.USA && refreshed.USA.type === 'FeatureCollection') {
+              usaSource.setData(refreshed.USA);
+            }
+            if (refreshed.ARG && refreshed.ARG.type === 'FeatureCollection') {
+              argentinaSource.setData(refreshed.ARG);
+            }
+            setLiveData(refreshed);
+          } finally {
+            setIsLoading(false);
+          }
         }
       } else {
         brazilSource.setData('/brazil.geojson');

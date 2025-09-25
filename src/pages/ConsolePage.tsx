@@ -527,15 +527,13 @@ export function ConsolePage() {
         >
           {`LIVE`}
         </button>
-        <div>
-          <p
-            style={{
-              minWidth: 180,
-              fontWeight: dataMode === 'live' ? 'bold' : 'normal',
-            }}
-          >
-            {isLoading ? <Spinner size={30} /> : `${getDateRangeString()}`}
-          </p>
+        <div
+          style={{
+            minWidth: 180,
+            fontWeight: dataMode === 'live' ? 'bold' : 'normal',
+          }}
+        >
+          {isLoading ? <Spinner size={30} /> : `${getDateRangeString()}`}
         </div>
       </div>
     </div>
@@ -571,15 +569,13 @@ export function ConsolePage() {
         >
           {`LIVE`}
         </button>
-        <div>
-          <p
-            style={{
-              minWidth: 180,
-              fontWeight: dataMode === 'live' ? 'bold' : 'normal',
-            }}
-          >
-            {isLoading ? <Spinner /> : `${getDateRangeString()}`}
-          </p>
+        <div
+          style={{
+            minWidth: 180,
+            fontWeight: dataMode === 'live' ? 'bold' : 'normal',
+          }}
+        >
+          {isLoading ? <Spinner /> : `${getDateRangeString()}`}
         </div>
       </div>
     </div>
