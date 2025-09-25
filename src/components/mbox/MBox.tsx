@@ -1,8 +1,6 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import mapboxgl from 'mapbox-gl';
-
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { Spinner } from '../spinner/Spinner';
 import { apiWildfires } from '../../utils/apiWildfires';
 
 const MAPBOX_KEY = process.env.REACT_APP_MAPBOX_KEY || '';
@@ -12,7 +10,7 @@ export interface IMapCoords {
   lng: number;
 }
 
-const P2COORDS = { lat: -10, lng: -78.3355236 };
+const P2COORDS: IMapCoords = { lat: -10, lng: -78.3355236 };
 
 export const MBox = ({
   dataMode,
