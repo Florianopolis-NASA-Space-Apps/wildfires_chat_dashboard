@@ -19,7 +19,7 @@ import { Spinner } from '../components/spinner/Spinner';
 import { WavRecorder, WavStreamPlayer } from '../lib/wavtools';
 import { WavRenderer } from '../utils/wav_renderer';
 import { RealtimeClient } from '../lib/realtime/RealtimeClient';
-import { instructions } from '../utils/conversation_config';
+import { instructions } from '../constants/prompts';
 
 type VoiceSessionStatus =
   | 'idle'
