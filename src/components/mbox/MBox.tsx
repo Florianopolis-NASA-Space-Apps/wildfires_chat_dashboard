@@ -24,7 +24,6 @@ const P2COORDS: IMapCoords = { lat: -10, lng: -78.3355236 };
 const REGION_CODE = 'AMERICAS' as const;
 
 export const MBox = ({
-  dataMode,
   setIsLoading,
   isLargeScreen,
   focusCoords,
@@ -33,7 +32,6 @@ export const MBox = ({
   startDate,
 }: {
   isLargeScreen: boolean;
-  dataMode: 'live' | 'historical';
   setIsLoading: (loading: boolean) => void;
   focusCoords: IMapCoords | null;
   marker: MapMarkerDetails | null;
@@ -49,55 +47,47 @@ export const MBox = ({
   const [isMapReady, setIsMapReady] = useState(false);
 
   const setMapData = useCallback(
-    async (map: mapboxgl.Map, mode: 'live' | 'historical') => {
+    async (map: mapboxgl.Map) => {
       const americasSource = map.getSource(
         'wildfires-americas'
       ) as mapboxgl.GeoJSONSource;
       if (!americasSource) return;
+      const fetchKey = `${startDate}|${numberOfDays}`;
+      if (
+        liveData &&
+        liveData.type === 'FeatureCollection' &&
+        lastFetchKeyRef.current === fetchKey
+      ) {
+        americasSource.setData(liveData);
+        return;
+      }
+      const regionCodes = [REGION_CODE];
+      setIsLoading(true);
+      try {
+        const cached = await readCountriesGeoJson(regionCodes);
+        const cachedAmericas = cached[REGION_CODE];
 
-      if (mode === 'live') {
-        const fetchKey = `${startDate}|${numberOfDays}`;
+        if (cachedAmericas && cachedAmericas.type === 'FeatureCollection') {
+          americasSource.setData(cachedAmericas);
+        }
+        await apiWildfires({
+          numberOfDays,
+          startDate,
+        });
+        const refreshed = await readCountriesGeoJson(regionCodes);
+        const refreshedAmericas = refreshed[REGION_CODE];
         if (
-          liveData &&
-          liveData.type === 'FeatureCollection' &&
-          lastFetchKeyRef.current === fetchKey
+          refreshedAmericas &&
+          refreshedAmericas.type === 'FeatureCollection'
         ) {
-          americasSource.setData(liveData);
-          return;
+          americasSource.setData(refreshedAmericas);
+          setLiveData(refreshedAmericas);
+        } else {
+          setLiveData(null);
         }
-
-        const regionCodes = [REGION_CODE];
-        setIsLoading(true);
-        try {
-          const cached = await readCountriesGeoJson(regionCodes);
-          const cachedAmericas = cached[REGION_CODE];
-
-          if (cachedAmericas && cachedAmericas.type === 'FeatureCollection') {
-            americasSource.setData(cachedAmericas);
-          }
-
-          await apiWildfires({
-            numberOfDays,
-            startDate,
-          });
-
-          const refreshed = await readCountriesGeoJson(regionCodes);
-          const refreshedAmericas = refreshed[REGION_CODE];
-          if (
-            refreshedAmericas &&
-            refreshedAmericas.type === 'FeatureCollection'
-          ) {
-            americasSource.setData(refreshedAmericas);
-            setLiveData(refreshedAmericas);
-          } else {
-            setLiveData(null);
-          }
-          lastFetchKeyRef.current = fetchKey;
-        } finally {
-          setIsLoading(false);
-        }
-      } else {
-        americasSource.setData('/americas.geojson');
+        lastFetchKeyRef.current = fetchKey;
+      } finally {
+        setIsLoading(false);
       }
     },
     [liveData, numberOfDays, setIsLoading, startDate]
@@ -166,7 +156,6 @@ export const MBox = ({
         center: [P2COORDS.lng, P2COORDS.lat],
         zoom: 2.5,
       });
-
       mapRef.current.on('load', () => {
         // Add Americas wildfires source
         mapRef.current?.addSource('wildfires-americas', {
@@ -176,13 +165,11 @@ export const MBox = ({
           clusterMaxZoom: 14,
           clusterRadius: 50,
         });
-
         mapRef.current &&
           addClusterLayers(mapRef.current, 'wildfires-americas', 'americas');
         setIsMapReady(true);
       });
     }
-
     return () => {
       markerRef.current?.remove();
       popupRef.current?.remove();
@@ -195,8 +182,8 @@ export const MBox = ({
 
   useEffect(() => {
     if (!mapRef.current || !isMapReady) return;
-    setMapData(mapRef.current, dataMode);
-  }, [dataMode, isMapReady, setMapData]);
+    setMapData(mapRef.current);
+  }, [isMapReady, setMapData]);
 
   useEffect(() => {
     if (!mapRef.current || !isMapReady) return;
@@ -207,18 +194,15 @@ export const MBox = ({
       popupRef.current = null;
       return;
     }
-
     const { lat, lng } = marker;
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
       return;
     }
-
     const map = mapRef.current;
     if (!markerRef.current) {
       markerRef.current = new mapboxgl.Marker({ color: COLORS.crimson });
     }
     markerRef.current.setLngLat([lng, lat]).addTo(map);
-
     if (!popupRef.current) {
       popupRef.current = new mapboxgl.Popup({
         closeButton: false,
@@ -226,10 +210,8 @@ export const MBox = ({
         maxWidth: '260px',
       });
     }
-
     const popupEl = document.createElement('div');
     popupEl.className = 'map-marker-popup';
-
     const titleEl = document.createElement('div');
     titleEl.style.fontWeight = '600';
     titleEl.textContent =
@@ -237,13 +219,11 @@ export const MBox = ({
         ? marker.location
         : `${lat.toFixed(2)}, ${lng.toFixed(2)}`;
     popupEl.appendChild(titleEl);
-
     const coordEl = document.createElement('div');
     coordEl.style.fontSize = '11px';
     coordEl.style.opacity = '0.7';
     coordEl.textContent = `Lat ${lat.toFixed(2)} · Lng ${lng.toFixed(2)}`;
     popupEl.appendChild(coordEl);
-
     if (marker.temperature) {
       const tempEl = document.createElement('div');
       tempEl.textContent = `Temp: ${marker.temperature.value.toFixed(1)} ${
@@ -251,7 +231,6 @@ export const MBox = ({
       }`;
       popupEl.appendChild(tempEl);
     }
-
     if (marker.wind_speed) {
       const windEl = document.createElement('div');
       windEl.textContent = `Wind: ${marker.wind_speed.value.toFixed(1)} ${
@@ -259,7 +238,6 @@ export const MBox = ({
       }`;
       popupEl.appendChild(windEl);
     }
-
     if (marker.daysSinceRain !== undefined && marker.daysSinceRain !== null) {
       const rainEl = document.createElement('div');
       rainEl.textContent =
@@ -268,7 +246,6 @@ export const MBox = ({
           : `Days since rain: ${marker.daysSinceRain}`;
       popupEl.appendChild(rainEl);
     }
-
     popupRef.current.setDOMContent(popupEl);
     markerRef.current.setPopup(popupRef.current);
     popupRef.current.addTo(map);

@@ -35,12 +35,14 @@ export function DateRangeModal({
   );
   const [error, setError] = useState<string | null>(null);
 
-  const minValue = useMemo(() => (minDate ? formatDateForInput(minDate) : ''), [
-    minDate,
-  ]);
-  const maxValue = useMemo(() => formatDateForInput(maxDate ?? new Date()), [
-    maxDate,
-  ]);
+  const minValue = useMemo(
+    () => (minDate ? formatDateForInput(minDate) : ''),
+    [minDate]
+  );
+  const maxValue = useMemo(
+    () => formatDateForInput(maxDate ?? new Date()),
+    [maxDate]
+  );
 
   useEffect(() => {
     if (isMinimized) {
@@ -119,14 +121,6 @@ export function DateRangeModal({
       <div className="date-range-modal" data-component="DateRangeModal">
         <div className="date-range-modal__header">
           <h2 id="date-range-modal-title">Select Timeframe</h2>
-          <button
-            type="button"
-            className="date-range-modal__close"
-            onClick={onMinimize}
-            aria-label="Minimize timeframe selector"
-          >
-            <Minimize2 size={18} />
-          </button>
         </div>
         <div className="date-range-modal__body">
           <label className="date-range-input">

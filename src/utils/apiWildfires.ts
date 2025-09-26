@@ -1,5 +1,6 @@
 import Papa from 'papaparse';
 import { readCountriesGeoJson, replaceCountryObservations } from './wildfireDb';
+import { NASA_FIRMS_AREA_CSV_BASE_URL } from '../constants/links';
 
 const AMERICAS_CODE = 'AMERICAS';
 const FALLBACK_GEOJSON_PATHS: Record<string, string> = {
@@ -20,7 +21,7 @@ async function fetchAmericasWildfireRows({
     throw new Error('Fetch API is not available in this environment');
   }
   const [west, south, east, north] = AMERICAS_BBOX;
-  const baseUrl = `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${NASA_MAP_KEY}/${NASA_DATA_SOURCE}/${west},${south},${east},${north}`;
+  const baseUrl = `${NASA_FIRMS_AREA_CSV_BASE_URL}/${NASA_MAP_KEY}/${NASA_DATA_SOURCE}/${west},${south},${east},${north}`;
   const params = new URLSearchParams({ numberOfDays });
   if (startDate) {
     params.set('startDate', startDate);

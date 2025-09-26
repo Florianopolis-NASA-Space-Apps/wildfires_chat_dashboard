@@ -23,20 +23,10 @@ import { ConsoleHeader } from './components/ConsoleHeader';
 import { HackathonWinners } from './components/HackathonWinners';
 import { MapInformationOverlay } from './components/MapInformationOverlay';
 import { SlideDeckLightbox } from './components/SlideDeckLightbox';
-
-const SLIDE_DECK_LINK =
-  'https://docs.google.com/presentation/d/e/2PACX-1vTezgMfwMSMOTV1xAERxRqVY9TMX-bF-45w2v5gP4jbs8Wy1t_H3u5kTwkxNfQFcA/embed?start=false&loop=false&delayms=60000';
+import { SLIDE_DECK_URL } from '../constants/links';
 
 export function ConsolePage() {
-  /**
-   * All of our variables for displaying application state
-   * - items are all conversation items (dialog)
-   * - realtimeEvents are event logs, which can be expanded
-   * - memoryKv is for set_memory() function
-   * - coords, marker are for get_weather() function
-   */
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
-  const [dataMode, setDataMode] = useState<'live' | 'historical'>('live');
   const [isLoading, setIsLoading] = useState(true);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const [markerInfo, setMarkerInfo] = useState<MapMarkerDetails | null>(null);
@@ -160,8 +150,8 @@ export function ConsolePage() {
     if (isLargeScreen) {
       setIsLightboxOpen(true);
     } else {
-      // open SLIDE_DECK_LINK in new tab
-      window.open(SLIDE_DECK_LINK, '_blank');
+      // open SLIDE_DECK_URL in new tab
+      window.open(SLIDE_DECK_URL, '_blank');
     }
   }, [isLargeScreen]);
 
@@ -176,7 +166,6 @@ export function ConsolePage() {
           <div className="content-block map" style={{ height: '100%' }}>
             <MBox
               isLargeScreen={isLargeScreen}
-              dataMode={dataMode}
               setIsLoading={setIsLoading}
               focusCoords={mapPosition}
               marker={markerInfo}
@@ -260,7 +249,7 @@ export function ConsolePage() {
       </div>
       <SlideDeckLightbox
         isOpen={isLightboxOpen}
-        slideDeckUrl={SLIDE_DECK_LINK}
+        slideDeckUrl={SLIDE_DECK_URL}
         onClose={closeLightbox}
       />
     </div>

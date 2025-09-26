@@ -19,6 +19,7 @@ import {
 } from '../../utils/dates';
 import type { IMapCoords, MapMarkerDetails } from '../mbox/MBox';
 import { COLORS } from '../../constants/colors';
+import { OPEN_METEO_ARCHIVE_URL, OPEN_METEO_FORECAST_URL } from '../../constants/links';
 import './RealtimeVoiceModal.scss';
 
 type VoiceSessionStatus =
@@ -480,7 +481,7 @@ export function RealtimeVoiceModal({
           });
           onMapPositionChange({ lat: latitude, lng: longitude });
 
-          const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,wind_speed_10m`;
+          const url = `${OPEN_METEO_FORECAST_URL}?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,wind_speed_10m`;
           const response = await fetch(url);
           if (!response.ok) {
             throw new Error(
@@ -552,7 +553,7 @@ export function RealtimeVoiceModal({
             .toISOString()
             .split('T')[0];
 
-          const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${latitude}&longitude=${longitude}&start_date=${startDate}&end_date=${endDate}&daily=precipitation_sum`;
+          const url = `${OPEN_METEO_ARCHIVE_URL}?latitude=${latitude}&longitude=${longitude}&start_date=${startDate}&end_date=${endDate}&daily=precipitation_sum`;
           const response = await fetch(url);
           if (!response.ok) {
             throw new Error(

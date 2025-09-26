@@ -5,7 +5,12 @@
   width: 360px;
   max-width: calc(100% - 32px);
   max-height: 60vh;
-  background: linear-gradient(135deg, var(--color-sand), var(--color-sand), rgba(var(--color-sand-rgb), 0.6));
+  background: linear-gradient(
+    135deg,
+    var(--color-sand),
+    var(--color-sand),
+    rgba(var(--color-sand-rgb), 0.6)
+  );
   border-radius: 16px;
   box-shadow: 0 16px 32px rgba(var(--color-slate-900-rgb), 0.18);
   padding: 16px;
@@ -36,7 +41,7 @@
 }
 
 .realtime-voice-modal__start-button:not([disabled]) {
-  animation: realtime-voice-modal__start-pulse 1.5s ease-in-out infinite;
+  animation: realtime-voice-modal__start-pulse 1.4s ease-in-out infinite;
 }
 
 .realtime-voice-modal__start-button:not([disabled]):hover {

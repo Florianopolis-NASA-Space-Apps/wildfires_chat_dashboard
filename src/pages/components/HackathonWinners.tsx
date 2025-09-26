@@ -1,13 +1,11 @@
 import { MouseEvent } from 'react';
 import { X } from 'react-feather';
+import { NASA_SPACE_APPS_WINNERS_URL } from '../../constants/links';
 
 interface HackathonWinnersProps {
   isVisible: boolean;
   onDismiss: () => void;
 }
-
-const WINNERS_ARTICLE_URL =
-  'https://www.nasa.gov/learning-resources/stem-engagement-at-nasa/nasa-international-space-apps-challenge-announces-2024-global-winners/';
 
 export function HackathonWinners({
   isVisible,
@@ -18,7 +16,7 @@ export function HackathonWinners({
   }
 
   const handleCardClick = () => {
-    window.open(WINNERS_ARTICLE_URL, '_blank');
+    window.open(NASA_SPACE_APPS_WINNERS_URL, '_blank');
   };
 
   const handleCloseClick = (event: MouseEvent<HTMLButtonElement>) => {

@@ -1,7 +1,7 @@
 import type { BoundingBox } from '../types/geospatial';
+import { NOMINATIM_SEARCH_URL } from '../constants/links';
 
-const NOMINATIM_ENDPOINT = 'https://nominatim.openstreetmap.org/search';
-const NOMINATIM_CONTACT_EMAIL = 'support@wildfireschatdashboard.local';
+const NOMINATIM_CONTACT_EMAIL = 'support@archlife.org';
 
 interface NominatimPlace {
   boundingbox?: [string, string, string, string];
@@ -39,7 +39,10 @@ function parseBoundingBox(
   };
 }
 
-function parseCenter(lat?: string, lon?: string): { lat: number; lon: number } | null {
+function parseCenter(
+  lat?: string,
+  lon?: string
+): { lat: number; lon: number } | null {
   if (!lat || !lon) {
     return null;
   }
@@ -70,7 +73,7 @@ export async function lookupBoundingBoxForPlace(
 
   let response: Response;
   try {
-    response = await fetch(`${NOMINATIM_ENDPOINT}?${params.toString()}`, {
+    response = await fetch(`${NOMINATIM_SEARCH_URL}?${params.toString()}`, {
       headers: {
         Accept: 'application/json',
       },
