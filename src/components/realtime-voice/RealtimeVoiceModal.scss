@@ -1,11 +1,11 @@
 .realtime-voice-modal {
-  position: fixed;
+  position: absolute;
   bottom: 16px;
   left: 16px;
   width: 360px;
   max-width: calc(100% - 32px);
-  max-height: 80vh;
-  background: #ffffff;
+  max-height: 60vh;
+  background: linear-gradient(135deg, #cdbea1, #cdbea1, #cdbea199);
   border-radius: 16px;
   box-shadow: 0 16px 32px rgba(15, 23, 42, 0.18);
   padding: 16px;
@@ -14,6 +14,41 @@
   gap: 12px;
   z-index: 2000;
   pointer-events: all;
+}
+
+@keyframes realtime-voice-modal__start-pulse {
+  0%,
+  100% {
+    background-color: #0ea5e9;
+    box-shadow: 0 0 16px rgba(14, 165, 233, 0.55);
+  }
+  50% {
+    background-color: #22c55e;
+    box-shadow: 0 0 20px rgba(34, 197, 94, 0.55);
+  }
+}
+
+.realtime-voice-modal__start-button {
+  background-color: #0ea5e9;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.realtime-voice-modal__start-button:not([disabled]) {
+  animation: realtime-voice-modal__start-pulse 1.5s ease-in-out infinite;
+}
+
+.realtime-voice-modal__start-button:not([disabled]):hover {
+  animation-play-state: paused;
+  background-color: #22c55e;
+  box-shadow: 0 0 20px rgba(34, 197, 94, 0.65);
+}
+
+.realtime-voice-modal__start-button[disabled] {
+  animation: none;
+  background-color: #9ca3af;
+  box-shadow: none;
+  color: #f5f5f5;
 }
 
 .realtime-voice-modal__header {

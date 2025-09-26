@@ -1,5 +1,6 @@
 import initSqlJs, { Database, SqlJsStatic } from 'sql.js';
 import type { FeatureCollection, Feature } from 'geojson';
+import type { BoundingBox } from '../types/geospatial';
 
 const SQLITE_WASM_PATH = '/sql-wasm.wasm';
 const DB_STORAGE_KEY = 'wildfire_sqlite_db_v2';
@@ -137,6 +138,41 @@ export interface ObservationRecord {
   bright_t31: number | null;
   frp: number | null;
   daynight: string | null;
+}
+
+interface NormalizedBounds {
+  south: number;
+  north: number;
+  west: number;
+  east: number;
+}
+
+function normalizeBounds(bounds: BoundingBox): NormalizedBounds {
+  const north = Number(bounds.north);
+  const south = Number(bounds.south);
+  const east = Number(bounds.east);
+  const west = Number(bounds.west);
+
+  if (![north, south, east, west].every((value) => Number.isFinite(value))) {
+    throw new Error('Bounding box values must be finite numbers.');
+  }
+
+  return {
+    south: Math.min(north, south),
+    north: Math.max(north, south),
+    west: Math.min(east, west),
+    east: Math.max(east, west),
+  };
+}
+
+function extractCount(row: Record<string, unknown>): number {
+  const value =
+    row['count'] ?? row['COUNT'] ?? Object.values(row)[0];
+  const count = Number(value);
+  if (!Number.isFinite(count)) {
+    throw new Error('Failed to parse count from query result.');
+  }
+  return count;
 }
 
 function toNumber(value: unknown): number | null {
@@ -317,6 +353,112 @@ export async function clearObservations(): Promise<void> {
   const db = await getDatabase();
   db.run('DELETE FROM observations');
   persistDatabase(db);
+}
+
+export interface ObservationMetricSummary {
+  average: number | null;
+  minimum: number | null;
+  maximum: number | null;
+}
+
+export interface BoundingBoxObservationStats {
+  count: number;
+  scan: ObservationMetricSummary;
+  track: ObservationMetricSummary;
+  brightness: ObservationMetricSummary;
+  frp: ObservationMetricSummary;
+}
+
+function extractNullableNumber(
+  row: Record<string, unknown>,
+  key: string
+): number | null {
+  const value = row[key];
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+export async function countObservationsInBoundingBox(
+  bounds: BoundingBox
+): Promise<BoundingBoxObservationStats> {
+  const db = await getDatabase();
+  const { south, north, west, east } = normalizeBounds(bounds);
+
+  let statement: ReturnType<Database['prepare']> | null = null;
+  try {
+    const selectClause = `SELECT
+        COUNT(*) as count,
+        AVG(scan) as avg_scan,
+        MIN(scan) as min_scan,
+        MAX(scan) as max_scan,
+        AVG(track) as avg_track,
+        MIN(track) as min_track,
+        MAX(track) as max_track,
+        AVG(brightness) as avg_brightness,
+        MIN(brightness) as min_brightness,
+        MAX(brightness) as max_brightness,
+        AVG(frp) as avg_frp,
+        MIN(frp) as min_frp,
+        MAX(frp) as max_frp
+      FROM observations`;
+
+    if (east >= west) {
+      statement = db.prepare(
+        `${selectClause}
+          WHERE latitude BETWEEN ? AND ?
+            AND longitude BETWEEN ? AND ?`
+      );
+      statement.bind([south, north, west, east]);
+    } else {
+      statement = db.prepare(
+        `${selectClause}
+          WHERE latitude BETWEEN ? AND ?
+            AND (longitude >= ? OR longitude <= ?)`
+      );
+      statement.bind([south, north, west, east]);
+    }
+
+    if (!statement.step()) {
+      return {
+        count: 0,
+        scan: { average: null, minimum: null, maximum: null },
+        track: { average: null, minimum: null, maximum: null },
+        brightness: { average: null, minimum: null, maximum: null },
+        frp: { average: null, minimum: null, maximum: null },
+      };
+    }
+    const row = statement.getAsObject();
+    const count = extractCount(row);
+
+    return {
+      count,
+      scan: {
+        average: extractNullableNumber(row, 'avg_scan'),
+        minimum: extractNullableNumber(row, 'min_scan'),
+        maximum: extractNullableNumber(row, 'max_scan'),
+      },
+      track: {
+        average: extractNullableNumber(row, 'avg_track'),
+        minimum: extractNullableNumber(row, 'min_track'),
+        maximum: extractNullableNumber(row, 'max_track'),
+      },
+      brightness: {
+        average: extractNullableNumber(row, 'avg_brightness'),
+        minimum: extractNullableNumber(row, 'min_brightness'),
+        maximum: extractNullableNumber(row, 'max_brightness'),
+      },
+      frp: {
+        average: extractNullableNumber(row, 'avg_frp'),
+        minimum: extractNullableNumber(row, 'min_frp'),
+        maximum: extractNullableNumber(row, 'max_frp'),
+      },
+    };
+  } finally {
+    statement?.free();
+  }
 }
 
 export async function runObservationScalarQuery(

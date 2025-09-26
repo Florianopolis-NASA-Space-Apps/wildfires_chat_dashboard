@@ -6,7 +6,12 @@ import { WavRecorder, WavStreamPlayer } from '../../lib/wavtools';
 import { WavRenderer } from '../../utils/wav_renderer';
 import { RealtimeClient } from '../../lib/realtime/RealtimeClient';
 import { instructions } from '../../constants/prompts';
-import { runObservationScalarQuery } from '../../utils/wildfireDb';
+import {
+  countObservationsInBoundingBox,
+  type BoundingBoxObservationStats,
+} from '../../utils/wildfireDb';
+import type { BoundingBox } from '../../types/geospatial';
+import { lookupBoundingBoxForPlace } from '../../utils/geocoding';
 import type { IMapCoords, MapMarkerDetails } from '../mbox/MBox';
 import './RealtimeVoiceModal.scss';
 
@@ -27,8 +32,67 @@ interface RealtimeVoiceModalProps {
   onMarkerUpdate: (update: Partial<MapMarkerDetails>) => void;
   onMapPositionChange: (coords: IMapCoords | null) => void;
   onObservationQueryChange: (query: string | null) => void;
-  onObservationValueChange: (value: number | null) => void;
+  onObservationValueChange: (value: BoundingBoxObservationStats | null) => void;
   onResetContext: () => void;
+}
+
+function toFiniteNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'string' && value.trim().length) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return null;
+}
+
+function parseBoundingBoxArg(arg: unknown): BoundingBox {
+  if (!arg || typeof arg !== 'object') {
+    throw new Error('Bounding box must be an object.');
+  }
+  const record = arg as Record<string, unknown>;
+  const north = toFiniteNumber(record.north);
+  const south = toFiniteNumber(record.south);
+  const east = toFiniteNumber(record.east);
+  const west = toFiniteNumber(record.west);
+
+  if (north === null || south === null || east === null || west === null) {
+    throw new Error(
+      'Bounding box requires numeric north, south, east, and west values.'
+    );
+  }
+
+  return {
+    north,
+    south,
+    east,
+    west,
+  };
+}
+
+function summarizeBoundingBox(bounds: BoundingBox, label?: string): string {
+  const parts: string[] = [];
+  if (label && label.trim().length) {
+    parts.push(`Region: ${label.trim()}`);
+  }
+  const latMin = Math.min(bounds.north, bounds.south);
+  const latMax = Math.max(bounds.north, bounds.south);
+  parts.push(`Latitude: ${latMin.toFixed(2)}° to ${latMax.toFixed(2)}°`);
+  if (bounds.east < bounds.west) {
+    parts.push(
+      `Longitude: wraps dateline (${bounds.west.toFixed(
+        2
+      )}° → 180° and -180° → ${bounds.east.toFixed(2)}°)`
+    );
+  } else {
+    const lonMin = Math.min(bounds.west, bounds.east);
+    const lonMax = Math.max(bounds.west, bounds.east);
+    parts.push(`Longitude: ${lonMin.toFixed(2)}° to ${lonMax.toFixed(2)}°`);
+  }
+  return parts.join('\n');
 }
 
 export function RealtimeVoiceModal({
@@ -212,31 +276,99 @@ export function RealtimeVoiceModal({
 
       client.addTool(
         {
-          name: 'get_observations',
+          name: 'lookup_bounding_box',
           description:
-            'Executes a SQL SELECT query over cached wildfire observations and returns a numeric result.',
+            'Resolves a place name to a geographic bounding box using OpenStreetMap Nominatim.',
           parameters: {
             type: 'object',
-            required: ['query'],
+            required: ['place'],
             properties: {
-              query: {
+              place: {
                 type: 'string',
                 description:
-                  'SQL SELECT statement that returns a single numeric column.',
+                  'City, region, or country name to geocode (e.g., "Lisbon", "Peru").',
               },
             },
             additionalProperties: false,
           },
         },
         async (args: Record<string, any>) => {
-          const query = typeof args?.query === 'string' ? args.query : '';
-          if (query.trim() === '') {
-            throw new Error('Query must be a non-empty string.');
+          const place =
+            typeof args?.place === 'string' ? args.place.trim() : '';
+          if (!place) {
+            throw new Error(
+              'The "place" parameter must be a non-empty string.'
+            );
           }
-          onObservationQueryChange(query);
-          const value = await runObservationScalarQuery(query);
-          onObservationValueChange(value);
-          return { value };
+          const result = await lookupBoundingBoxForPlace(place);
+          return {
+            bounding_box: result.boundingBox,
+            display_name: result.displayName,
+            center: result.center,
+            source: result.source,
+          };
+        }
+      );
+
+      client.addTool(
+        {
+          name: 'get_observations',
+          description:
+            'Counts cached wildfire observations that fall within a latitude/longitude bounding box.',
+          parameters: {
+            type: 'object',
+            required: ['bounding_box'],
+            properties: {
+              bounding_box: {
+                type: 'object',
+                description:
+                  'Rectangular bounds with north/south latitude and east/west longitude edges.',
+                properties: {
+                  north: {
+                    type: 'number',
+                    description: 'Northern latitude edge',
+                  },
+                  south: {
+                    type: 'number',
+                    description: 'Southern latitude edge',
+                  },
+                  east: {
+                    type: 'number',
+                    description: 'Eastern longitude edge',
+                  },
+                  west: {
+                    type: 'number',
+                    description: 'Western longitude edge',
+                  },
+                },
+                required: ['north', 'south', 'east', 'west'],
+                additionalProperties: false,
+              },
+              label: {
+                type: 'string',
+                description:
+                  'Optional descriptor for the bounding box (e.g., the place name used to generate it).',
+              },
+            },
+            additionalProperties: false,
+          },
+        },
+        async (args: Record<string, any>) => {
+          const bounds = parseBoundingBoxArg(args?.bounding_box);
+          const label =
+            typeof args?.label === 'string' && args.label.trim().length
+              ? args.label.trim()
+              : undefined;
+          const stats = await countObservationsInBoundingBox(bounds);
+          const summary = summarizeBoundingBox(bounds, label);
+          onObservationQueryChange(summary);
+          onObservationValueChange(stats);
+          return {
+            ...stats,
+            value: stats.count,
+            bounding_box: bounds,
+            label,
+          };
         }
       );
 
@@ -648,14 +780,6 @@ export function RealtimeVoiceModal({
     onResetContext();
   }, [onResetContext]);
 
-  const handleDeleteItem = useCallback((itemId: string) => {
-    try {
-      clientRef.current?.deleteItem(itemId);
-    } catch (err) {
-      console.warn(`Failed to delete item ${itemId}`, err);
-    }
-  }, []);
-
   useEffect(() => {
     return () => {
       teardownVoiceSession({ resetStatus: false }).catch((err) =>
@@ -693,11 +817,14 @@ export function RealtimeVoiceModal({
             <Button
               icon={Mic}
               label={isSessionActive ? 'Starting…' : 'Start'}
+              className="realtime-voice-modal__start-button"
               disabled={isSessionActive}
               onClick={startVoiceSession}
             />
           )}
-          {isSessionActive && (
+          {(isSessionActive ||
+            !!realtimeEvents.length ||
+            !!conversationItems.length) && (
             <Button
               icon={RefreshCw}
               label="Reset"
@@ -731,12 +858,14 @@ export function RealtimeVoiceModal({
           let detail: string | null = null;
 
           if (item.type === 'function_call' && item.formatted?.tool) {
+            return null;
             message = `Tool call → ${item.formatted.tool.name}`;
             const args = item.formatted.tool.arguments;
             if (typeof args === 'string' && args.trim().length) {
               detail = prettyPrintMaybeJson(args);
             }
           } else if (item.type === 'function_call_output') {
+            return null;
             message = 'Tool result';
             const output =
               typeof item.formatted?.output === 'string'
@@ -770,14 +899,6 @@ export function RealtimeVoiceModal({
                       </div>
                     )}
                   </div>
-                  <button
-                    className="realtime-voice-modal__close"
-                    type="button"
-                    aria-label={`Remove item ${roleLabel}`}
-                    onClick={() => handleDeleteItem(item.id)}
-                  >
-                    <X />
-                  </button>
                 </div>
               </div>
             </div>

@@ -59,10 +59,7 @@ export const MBox = ({
             const cached = await readCountriesGeoJson(regionCodes);
             const cachedAmericas = cached[REGION_CODE];
 
-            if (
-              cachedAmericas &&
-              cachedAmericas.type === 'FeatureCollection'
-            ) {
+            if (cachedAmericas && cachedAmericas.type === 'FeatureCollection') {
               americasSource.setData(cachedAmericas);
             }
 
@@ -151,6 +148,7 @@ export const MBox = ({
       mapRef.current = new mapboxgl.Map({
         container: mapContainerRef.current,
         style: 'mapbox://styles/mapbox/satellite-v9',
+        attributionControl: false,
         center: [P2COORDS.lng, P2COORDS.lat],
         zoom: 2.5,
       });
@@ -234,13 +232,17 @@ export const MBox = ({
 
     if (marker.temperature) {
       const tempEl = document.createElement('div');
-      tempEl.textContent = `Temp: ${marker.temperature.value.toFixed(1)} ${marker.temperature.units}`;
+      tempEl.textContent = `Temp: ${marker.temperature.value.toFixed(1)} ${
+        marker.temperature.units
+      }`;
       popupEl.appendChild(tempEl);
     }
 
     if (marker.wind_speed) {
       const windEl = document.createElement('div');
-      windEl.textContent = `Wind: ${marker.wind_speed.value.toFixed(1)} ${marker.wind_speed.units}`;
+      windEl.textContent = `Wind: ${marker.wind_speed.value.toFixed(1)} ${
+        marker.wind_speed.units
+      }`;
       popupEl.appendChild(windEl);
     }
 
@@ -263,7 +265,7 @@ export const MBox = ({
     if (!mapRef.current || !isMapReady || !focusCoords) return;
     mapRef.current.flyTo({
       center: [focusCoords.lng, focusCoords.lat],
-      zoom: isLargeScreen ? 4 : 3,
+      zoom: isLargeScreen ? 6 : 5,
       essential: true,
     });
   }, [focusCoords, isLargeScreen, isMapReady]);

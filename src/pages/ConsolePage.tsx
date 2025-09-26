@@ -10,9 +10,20 @@ import './ConsolePage.scss';
 import { MBox, IMapCoords, MapMarkerDetails } from '../components/mbox/MBox';
 import { Spinner } from '../components/spinner/Spinner';
 import { RealtimeVoiceModal } from '../components/realtime-voice/RealtimeVoiceModal';
+import type { BoundingBoxObservationStats } from '../utils/wildfireDb';
 
 const SLIDE_DECK_LINK =
   'https://docs.google.com/presentation/d/e/2PACX-1vTezgMfwMSMOTV1xAERxRqVY9TMX-bF-45w2v5gP4jbs8Wy1t_H3u5kTwkxNfQFcA/embed?start=false&loop=false&delayms=60000';
+
+function formatStatValue(value: number | null): string {
+  if (value === null || Number.isNaN(value)) {
+    return '--';
+  }
+  return value.toLocaleString(undefined, {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  });
+}
 
 export function ConsolePage() {
   /**
@@ -23,14 +34,16 @@ export function ConsolePage() {
    * - coords, marker are for get_weather() function
    */
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
-  const [dataMode, setDataMode] = useState<'live' | 'historical'>('historical');
+  const [dataMode, setDataMode] = useState<'live' | 'historical'>('live');
   const [isLoading, setIsLoading] = useState(false);
   const [markerInfo, setMarkerInfo] = useState<MapMarkerDetails | null>(null);
   const [mapPosition, setMapPosition] = useState<IMapCoords | null>(null);
-  const [lastObservationQuery, setLastObservationQuery] = useState<string | null>(
-    null
-  );
-  const [observationValue, setObservationValue] = useState<number | null>(null);
+  const [lastObservationQuery, setLastObservationQuery] = useState<
+    string | null
+  >(null);
+  const [observationValue, setObservationValue] =
+    useState<BoundingBoxObservationStats | null>(null);
+  const [isSpaceAppsModalVisible, setIsSpaceAppsModalVisible] = useState(true);
 
   const resetRealtimeContext = useCallback(() => {
     setMarkerInfo(null);
@@ -63,6 +76,10 @@ export function ConsolePage() {
   // Add this function to close the lightbox
   const closeLightbox = useCallback(() => {
     setIsLightboxOpen(false);
+  }, []);
+
+  const dismissSpaceAppsModal = useCallback(() => {
+    setIsSpaceAppsModalVisible(false);
   }, []);
 
   /**
@@ -238,6 +255,38 @@ export function ConsolePage() {
               focusCoords={mapPosition}
               marker={markerInfo}
             />
+            {isSpaceAppsModalVisible && (
+              <div
+                className="map-space-apps-modal"
+                role="status"
+                aria-live="polite"
+                onClick={() =>
+                  window.open(
+                    'https://www.nasa.gov/learning-resources/stem-engagement-at-nasa/nasa-international-space-apps-challenge-announces-2024-global-winners/',
+                    '_blank'
+                  )
+                }
+              >
+                <button
+                  type="button"
+                  className="map-space-apps-close"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    dismissSpaceAppsModal();
+                  }}
+                  aria-label="Dismiss NASA Space Apps announcement"
+                >
+                  <X size={14} />
+                </button>
+                <div className="map-space-apps-heading">
+                  {'2024 NASA Space Apps Challenge Winners'}
+                </div>
+                <div style={{ height: 10 }} />
+                <div className="map-space-apps-subheading">
+                  {'🏆 Top 10 out of 10,000 Worldwide Projects (Top 1%)'}
+                </div>
+              </div>
+            )}
             {(markerInfo || observationValue !== null) && (
               <div className="map-overlay-panel">
                 {markerInfo && (
@@ -246,9 +295,9 @@ export function ConsolePage() {
                     <div>
                       {markerInfo.location && markerInfo.location.trim().length
                         ? markerInfo.location
-                        : `${markerInfo.lat.toFixed(2)}, ${markerInfo.lng.toFixed(
+                        : `${markerInfo.lat.toFixed(
                             2
-                          )}`}
+                          )}, ${markerInfo.lng.toFixed(2)}`}
                     </div>
                     <div className="map-overlay-coords">
                       Lat: {markerInfo.lat.toFixed(2)} · Lng:{' '}
@@ -256,15 +305,13 @@ export function ConsolePage() {
                     </div>
                     {markerInfo.temperature && (
                       <div>
-                        Temperature:{' '}
-                        {markerInfo.temperature.value.toFixed(1)}{' '}
+                        Temperature: {markerInfo.temperature.value.toFixed(1)}{' '}
                         {markerInfo.temperature.units}
                       </div>
                     )}
                     {markerInfo.wind_speed && (
                       <div>
-                        Wind:{' '}
-                        {markerInfo.wind_speed.value.toFixed(1)}{' '}
+                        Wind: {markerInfo.wind_speed.value.toFixed(1)}{' '}
                         {markerInfo.wind_speed.units}
                       </div>
                     )}
@@ -281,7 +328,33 @@ export function ConsolePage() {
                 {observationValue !== null && (
                   <div className="map-overlay-section">
                     <div className="map-overlay-heading">Observation Query</div>
-                    <div>Value: {observationValue}</div>
+                    <div>
+                      Wildfire Count: {observationValue.count.toLocaleString()}
+                    </div>
+                    <div>
+                      Brightness (avg/min/max):{' '}
+                      {formatStatValue(observationValue.brightness.average)} /
+                      {formatStatValue(observationValue.brightness.minimum)} /
+                      {formatStatValue(observationValue.brightness.maximum)}
+                    </div>
+                    <div>
+                      Fire Radiative Power (avg/min/max):{' '}
+                      {formatStatValue(observationValue.frp.average)} /
+                      {formatStatValue(observationValue.frp.minimum)} /
+                      {formatStatValue(observationValue.frp.maximum)}
+                    </div>
+                    <div>
+                      Pixel Width (scan) avg/min/max:{' '}
+                      {formatStatValue(observationValue.scan.average)} /
+                      {formatStatValue(observationValue.scan.minimum)} /
+                      {formatStatValue(observationValue.scan.maximum)}
+                    </div>
+                    <div>
+                      Pixel Height (track) avg/min/max:{' '}
+                      {formatStatValue(observationValue.track.average)} /
+                      {formatStatValue(observationValue.track.minimum)} /
+                      {formatStatValue(observationValue.track.maximum)}
+                    </div>
                     {lastObservationQuery && (
                       <pre className="map-overlay-query">
                         {lastObservationQuery}
@@ -291,14 +364,28 @@ export function ConsolePage() {
                 )}
               </div>
             )}
+            <RealtimeVoiceModal
+              onMarkerUpdate={updateMarkerInfo}
+              onMapPositionChange={setMapPosition}
+              onObservationQueryChange={setLastObservationQuery}
+              onObservationValueChange={setObservationValue}
+              onResetContext={resetRealtimeContext}
+            />
           </div>
         </div>
-        {isLargeScreen ? DatasetControlsLarge : DatasetControlsSmall}
+        {/* {isLargeScreen ? DatasetControlsLarge : DatasetControlsSmall} */}
         {!isLargeScreen && (
           <Button
             icon={ExternalLink}
             iconPosition="end"
-            style={{ fontSize: 18, textAlign: 'center' }}
+            style={{
+              fontSize: 18,
+              textAlign: 'center',
+              backgroundColor: '#cdbea1',
+              alignSelf: 'flex-end',
+              marginTop: -10,
+              marginBottom: -10,
+            }}
             label={`Presentation Slide Deck`}
             onClick={openSlideDeck}
           />
@@ -310,13 +397,6 @@ export function ConsolePage() {
             <button className="close-button" onClick={closeLightbox}>
               <X />
             </button>
-            {/* <iframe
-              src="https://docs.google.com/presentation/d/e/2PACX-1vTAt9Nm2nNJb10eOdq_wcpM7IvLHe4azYY5qqazgSbwziSoeB52P6A8aJQEKSuRDy5tEhBbGbrzH84w/embed?start=false&loop=false&delayms=3000"
-              frameBorder="0"
-              width="960"
-              height="569"
-              allowFullScreen={true}
-            ></iframe> */}
             <iframe
               src={SLIDE_DECK_LINK}
               frameBorder="0"
@@ -327,13 +407,6 @@ export function ConsolePage() {
           </div>
         </div>
       )}
-      <RealtimeVoiceModal
-        onMarkerUpdate={updateMarkerInfo}
-        onMapPositionChange={setMapPosition}
-        onObservationQueryChange={setLastObservationQuery}
-        onObservationValueChange={setObservationValue}
-        onResetContext={resetRealtimeContext}
-      />
     </div>
   );
 }
