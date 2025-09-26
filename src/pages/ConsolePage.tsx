@@ -1,25 +1,29 @@
 /**
- * Running a local relay server will allow you to hide your API key
- * and run custom logic on the server
- *
- * Set the local relay server address to:
- * REACT_APP_LOCAL_RELAY_SERVER_URL=http://localhost:8081
- *
- * This will also require you to set OPENAI_API_KEY= in a `.env` file
- * You can run it with `npm run relay`, in parallel with `npm start`
+ * You can connect directly to OpenAI by setting the following environment variables:
+ * Optionally override the websocket endpoint with REACT_APP_OPENAI_REALTIME_URL=
  */
 
 import { useEffect, useCallback, useState } from 'react';
-
 import { X, ExternalLink } from 'react-feather';
 import { Button } from '../components/button/Button';
-
 import './ConsolePage.scss';
-import { IMapCoords, MBox } from '../components/mbox/MBox';
+import { MBox, IMapCoords, MapMarkerDetails } from '../components/mbox/MBox';
 import { Spinner } from '../components/spinner/Spinner';
+import { RealtimeVoiceModal } from '../components/realtime-voice/RealtimeVoiceModal';
+import type { BoundingBoxObservationStats } from '../utils/wildfireDb';
 
 const SLIDE_DECK_LINK =
   'https://docs.google.com/presentation/d/e/2PACX-1vTezgMfwMSMOTV1xAERxRqVY9TMX-bF-45w2v5gP4jbs8Wy1t_H3u5kTwkxNfQFcA/embed?start=false&loop=false&delayms=60000';
+
+function formatStatValue(value: number | null): string {
+  if (value === null || Number.isNaN(value)) {
+    return '--';
+  }
+  return value.toLocaleString(undefined, {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  });
+}
 
 export function ConsolePage() {
   /**
@@ -30,12 +34,52 @@ export function ConsolePage() {
    * - coords, marker are for get_weather() function
    */
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
-  const [dataMode, setDataMode] = useState<'live' | 'historical'>('historical');
+  const [dataMode, setDataMode] = useState<'live' | 'historical'>('live');
   const [isLoading, setIsLoading] = useState(false);
+  const [markerInfo, setMarkerInfo] = useState<MapMarkerDetails | null>(null);
+  const [mapPosition, setMapPosition] = useState<IMapCoords | null>(null);
+  const [lastObservationQuery, setLastObservationQuery] = useState<
+    string | null
+  >(null);
+  const [observationValue, setObservationValue] =
+    useState<BoundingBoxObservationStats | null>(null);
+  const [isSpaceAppsModalVisible, setIsSpaceAppsModalVisible] = useState(true);
+
+  const resetRealtimeContext = useCallback(() => {
+    setMarkerInfo(null);
+    setMapPosition(null);
+    setObservationValue(null);
+    setLastObservationQuery(null);
+  }, [
+    setMarkerInfo,
+    setMapPosition,
+    setObservationValue,
+    setLastObservationQuery,
+  ]);
+
+  const updateMarkerInfo = useCallback((update: Partial<MapMarkerDetails>) => {
+    setMarkerInfo((previous) => {
+      if (!previous) {
+        if (update.lat === undefined || update.lng === undefined) {
+          return previous;
+        }
+        return {
+          lat: update.lat,
+          lng: update.lng,
+          ...update,
+        } as MapMarkerDetails;
+      }
+      return { ...previous, ...update };
+    });
+  }, []);
 
   // Add this function to close the lightbox
   const closeLightbox = useCallback(() => {
     setIsLightboxOpen(false);
+  }, []);
+
+  const dismissSpaceAppsModal = useCallback(() => {
+    setIsSpaceAppsModalVisible(false);
   }, []);
 
   /**
@@ -61,7 +105,7 @@ export function ConsolePage() {
     }
   }, [isLargeScreen]);
 
-  const SmallButtons = (
+  const DatasetControlsSmall = (
     <div
       className={`content-actions`}
       style={{ alignItems: 'center', alignSelf: 'center' }}
@@ -105,22 +149,20 @@ export function ConsolePage() {
         >
           {`LIVE`}
         </button>
-        <div>
-          <p
-            style={{
-              minWidth: 180,
-              fontWeight: dataMode === 'live' ? 'bold' : 'normal',
-            }}
-          >
-            {isLoading ? <Spinner size={30} /> : `${getDateRangeString()}`}
-          </p>
+        <div
+          style={{
+            minWidth: 180,
+            fontWeight: dataMode === 'live' ? 'bold' : 'normal',
+          }}
+        >
+          {isLoading ? <Spinner size={30} /> : `${getDateRangeString()}`}
         </div>
       </div>
     </div>
   );
 
-  const LargeButtons = (
-    <div className="content-logs">
+  const DatasetControlsLarge = (
+    <div className="dataset-controls">
       <div className="content-actions">
         <p
           style={{ fontWeight: dataMode === 'historical' ? 'bold' : 'normal' }}
@@ -149,15 +191,13 @@ export function ConsolePage() {
         >
           {`LIVE`}
         </button>
-        <div>
-          <p
-            style={{
-              minWidth: 180,
-              fontWeight: dataMode === 'live' ? 'bold' : 'normal',
-            }}
-          >
-            {isLoading ? <Spinner /> : `${getDateRangeString()}`}
-          </p>
+        <div
+          style={{
+            minWidth: 180,
+            fontWeight: dataMode === 'live' ? 'bold' : 'normal',
+          }}
+        >
+          {isLoading ? <Spinner /> : `${getDateRangeString()}`}
         </div>
       </div>
     </div>
@@ -212,15 +252,140 @@ export function ConsolePage() {
               isLargeScreen={isLargeScreen}
               dataMode={dataMode}
               setIsLoading={setIsLoading}
+              focusCoords={mapPosition}
+              marker={markerInfo}
+            />
+            {isSpaceAppsModalVisible && (
+              <div
+                className="map-space-apps-modal"
+                role="status"
+                aria-live="polite"
+                onClick={() =>
+                  window.open(
+                    'https://www.nasa.gov/learning-resources/stem-engagement-at-nasa/nasa-international-space-apps-challenge-announces-2024-global-winners/',
+                    '_blank'
+                  )
+                }
+              >
+                <button
+                  type="button"
+                  className="map-space-apps-close"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    dismissSpaceAppsModal();
+                  }}
+                  aria-label="Dismiss NASA Space Apps announcement"
+                >
+                  <X size={14} />
+                </button>
+                <div className="map-space-apps-heading">
+                  {'2024 NASA Space Apps Challenge Winners'}
+                </div>
+                <div style={{ height: 10 }} />
+                <div className="map-space-apps-subheading">
+                  {'🏆 Top 10 out of 10,000 Worldwide Projects (Top 1%)'}
+                </div>
+              </div>
+            )}
+            {(markerInfo || observationValue !== null) && (
+              <div className="map-overlay-panel">
+                {markerInfo && (
+                  <div className="map-overlay-section">
+                    <div className="map-overlay-heading">Selected Location</div>
+                    <div>
+                      {markerInfo.location && markerInfo.location.trim().length
+                        ? markerInfo.location
+                        : `${markerInfo.lat.toFixed(
+                            2
+                          )}, ${markerInfo.lng.toFixed(2)}`}
+                    </div>
+                    <div className="map-overlay-coords">
+                      Lat: {markerInfo.lat.toFixed(2)} · Lng:{' '}
+                      {markerInfo.lng.toFixed(2)}
+                    </div>
+                    {markerInfo.temperature && (
+                      <div>
+                        Temperature: {markerInfo.temperature.value.toFixed(1)}{' '}
+                        {markerInfo.temperature.units}
+                      </div>
+                    )}
+                    {markerInfo.wind_speed && (
+                      <div>
+                        Wind: {markerInfo.wind_speed.value.toFixed(1)}{' '}
+                        {markerInfo.wind_speed.units}
+                      </div>
+                    )}
+                    {markerInfo.daysSinceRain !== undefined &&
+                      markerInfo.daysSinceRain !== null && (
+                        <div>
+                          {markerInfo.daysSinceRain === -1
+                            ? 'Last rain more than 10 days ago'
+                            : `Days since rain: ${markerInfo.daysSinceRain}`}
+                        </div>
+                      )}
+                  </div>
+                )}
+                {observationValue !== null && (
+                  <div className="map-overlay-section">
+                    <div className="map-overlay-heading">Observation Query</div>
+                    <div>
+                      Wildfire Count: {observationValue.count.toLocaleString()}
+                    </div>
+                    <div>
+                      Brightness (avg/min/max):{' '}
+                      {formatStatValue(observationValue.brightness.average)} /
+                      {formatStatValue(observationValue.brightness.minimum)} /
+                      {formatStatValue(observationValue.brightness.maximum)}
+                    </div>
+                    <div>
+                      Fire Radiative Power (avg/min/max):{' '}
+                      {formatStatValue(observationValue.frp.average)} /
+                      {formatStatValue(observationValue.frp.minimum)} /
+                      {formatStatValue(observationValue.frp.maximum)}
+                    </div>
+                    <div>
+                      Pixel Width (scan) avg/min/max:{' '}
+                      {formatStatValue(observationValue.scan.average)} /
+                      {formatStatValue(observationValue.scan.minimum)} /
+                      {formatStatValue(observationValue.scan.maximum)}
+                    </div>
+                    <div>
+                      Pixel Height (track) avg/min/max:{' '}
+                      {formatStatValue(observationValue.track.average)} /
+                      {formatStatValue(observationValue.track.minimum)} /
+                      {formatStatValue(observationValue.track.maximum)}
+                    </div>
+                    {lastObservationQuery && (
+                      <pre className="map-overlay-query">
+                        {lastObservationQuery}
+                      </pre>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+            <RealtimeVoiceModal
+              onMarkerUpdate={updateMarkerInfo}
+              onMapPositionChange={setMapPosition}
+              onObservationQueryChange={setLastObservationQuery}
+              onObservationValueChange={setObservationValue}
+              onResetContext={resetRealtimeContext}
             />
           </div>
         </div>
-        {isLargeScreen ? LargeButtons : SmallButtons}
+        {/* {isLargeScreen ? DatasetControlsLarge : DatasetControlsSmall} */}
         {!isLargeScreen && (
           <Button
             icon={ExternalLink}
             iconPosition="end"
-            style={{ fontSize: 18, textAlign: 'center' }}
+            style={{
+              fontSize: 18,
+              textAlign: 'center',
+              backgroundColor: '#cdbea1',
+              alignSelf: 'flex-end',
+              marginTop: -10,
+              marginBottom: -10,
+            }}
             label={`Presentation Slide Deck`}
             onClick={openSlideDeck}
           />
@@ -232,13 +397,6 @@ export function ConsolePage() {
             <button className="close-button" onClick={closeLightbox}>
               <X />
             </button>
-            {/* <iframe
-              src="https://docs.google.com/presentation/d/e/2PACX-1vTAt9Nm2nNJb10eOdq_wcpM7IvLHe4azYY5qqazgSbwziSoeB52P6A8aJQEKSuRDy5tEhBbGbrzH84w/embed?start=false&loop=false&delayms=3000"
-              frameBorder="0"
-              width="960"
-              height="569"
-              allowFullScreen={true}
-            ></iframe> */}
             <iframe
               src={SLIDE_DECK_LINK}
               frameBorder="0"

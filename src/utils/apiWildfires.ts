@@ -1,72 +1,166 @@
-const Papa = require('papaparse'); // for CSV parsing
+import Papa from 'papaparse';
+import { readCountriesGeoJson, replaceCountryObservations } from './wildfireDb';
+
+const AMERICAS_CODE = 'AMERICAS';
+const FALLBACK_GEOJSON_PATHS: Record<string, string> = {
+  [AMERICAS_CODE]: '/americas.geojson',
+};
+
+const AMERICAS_BBOX: [number, number, number, number] = [-170, -60, -30, 83];
+const NASA_DATA_SOURCE = 'MODIS_NRT';
+
+async function fetchAmericasWildfireRows({
+  numberOfDays,
+}: {
+  numberOfDays: string;
+}) {
+  if (typeof fetch === 'undefined') {
+    throw new Error('Fetch API is not available in this environment');
+  }
+  const [west, south, east, north] = AMERICAS_BBOX;
+  const url = `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${NASA_MAP_KEY}/${NASA_DATA_SOURCE}/${west},${south},${east},${north}/${numberOfDays}`;
+  const response = await fetch(url);
+  const text = await response.text();
+  if (!response.ok) {
+    throw new Error(`Status ${response.status}: ${text.slice(0, 200)}`);
+  }
+  if (!text || text.trim().length === 0) {
+    throw new Error('Empty response body');
+  }
+  if (text.trim().startsWith('<')) {
+    throw new Error('Received HTML instead of CSV');
+  }
+  const parsed = Papa.parse<Record<string, any>>(text, {
+    header: true,
+    // @ts-expect-error - Papa types do not include boolean for dynamicTyping
+    dynamicTyping: true,
+    skipEmptyLines: true,
+  });
+  const rows = parsed.data.filter(
+    (row: any) =>
+      row && row.longitude !== undefined && row.latitude !== undefined
+  );
+  if (!rows.length) {
+    throw new Error('No valid rows in CSV');
+  }
+  return rows;
+}
+
+function featureToObservation(row: any) {
+  if (!row) return null;
+  const geometry = row.geometry ?? {};
+  const coordinates = Array.isArray(geometry.coordinates)
+    ? geometry.coordinates
+    : [];
+  const props = row.properties ?? {};
+  const longitude = props.longitude ?? coordinates[0];
+  const latitude = props.latitude ?? coordinates[1];
+  if (
+    longitude === undefined ||
+    latitude === undefined ||
+    props.acq_date === undefined ||
+    props.acq_time === undefined
+  ) {
+    return null;
+  }
+  return {
+    latitude,
+    longitude,
+    brightness: props.brightness,
+    scan: props.scan,
+    track: props.track,
+    acq_date: props.acq_date,
+    acq_time: props.acq_time,
+    satellite: props.satellite ?? props.platform ?? 'Unknown',
+    confidence: props.confidence,
+    version: props.version,
+    bright_t31: props.bright_t31,
+    frp: props.frp,
+    daynight: props.daynight,
+  };
+}
+
+async function loadFallbackData(countryCode: string) {
+  const fallbackPath = FALLBACK_GEOJSON_PATHS[countryCode];
+  if (!fallbackPath || typeof fetch === 'undefined') {
+    return null;
+  }
+  try {
+    const response = await fetch(fallbackPath);
+    if (!response.ok) {
+      throw new Error(`Fallback response not OK: ${response.status}`);
+    }
+    const geojson = await response.json();
+    const features = Array.isArray(geojson?.features) ? geojson.features : [];
+    const observations = features
+      .map((feature: any) => featureToObservation(feature))
+      .filter(Boolean);
+    if (observations.length) {
+      await replaceCountryObservations(countryCode, observations as any[]);
+      return true;
+    }
+  } catch (fallbackError) {
+    console.error(
+      'Error loading fallback data for',
+      countryCode,
+      fallbackError
+    );
+  }
+  return null;
+}
+
+const NASA_MAP_KEY = process.env.REACT_APP_NASA_MAP_KEY || '';
 
 export async function apiWildfires({
-  countries = 'USA,ARG,BRA',
   numberOfDays = '4',
-}) {
-  const nasaMapKey = 'd83533a15b94181f62f362b63581c990';
+}: {
+  numberOfDays?: string;
+} = {}) {
   try {
-    const countryList = countries.split(',');
-    const result: {
-      USA: any;
-      ARG: any;
-      BRA: any;
-    } = {
-      USA: {},
-      ARG: {},
-      BRA: {},
-    };
-    // Function to fetch CSV data for a single country and convert it to GeoJSON
-    async function fetchCountryData(countryCode: string) {
-      const countryUrl = `https://firms.modaps.eosdis.nasa.gov/api/country/csv/${nasaMapKey}/MODIS_NRT/${countryCode}/${numberOfDays}`;
+    const regionCodes = [AMERICAS_CODE];
+    const cachedBeforeFetch = await readCountriesGeoJson(regionCodes);
+    let storedSuccessfully = false;
+    let lastError: string | null = null;
+    let americasRows: Record<string, any>[] | null = null;
+    try {
+      americasRows = await fetchAmericasWildfireRows({ numberOfDays });
+    } catch (error) {
+      console.error(
+        'Error fetching aggregated wildfire data for the Americas',
+        error
+      );
+      lastError = 'Failed to fetch data for the Americas';
+    }
+    if (americasRows && americasRows.length) {
       try {
-        const response = await fetch(countryUrl);
-        if (!response.ok) {
-          throw new Error(`Request failed with status ${response.status}`);
-        }
-        // Read CSV text
-        const csvData = await response.text();
-        // Parse CSV to JSON rows
-        const parsed = Papa.parse(csvData, { header: true });
-        const rows = parsed.data;
-        // Construct GeoJSON Features
-        const features = rows
-          .filter((row: any) => row.longitude && row.latitude)
-          .map((row: any) => ({
-            type: 'Feature',
-            geometry: {
-              type: 'Point',
-              coordinates: [
-                parseFloat(row.longitude),
-                parseFloat(row.latitude),
-              ],
-            },
-            properties: { ...row },
-          }));
-        // Build a FeatureCollection
-        const geoJson = {
-          type: 'FeatureCollection',
-          features,
-        };
-        // Return the data keyed by country code
-        return { [countryCode]: geoJson };
-      } catch (error) {
-        console.error('Error fetching data for', countryCode, error);
-        return {
-          [countryCode]: {
-            error: `Failed to fetch or process data for ${countryCode}`,
-          },
-        };
+        await replaceCountryObservations(AMERICAS_CODE, americasRows as any[]);
+        storedSuccessfully = true;
+      } catch (storageError) {
+        console.error(
+          'Error storing wildfire data for the Americas',
+          storageError
+        );
+        lastError = 'Failed to store data for the Americas';
       }
     }
-    // Process all countries in parallel
-    const promises = countryList.map(fetchCountryData);
-    const results = await Promise.all(promises);
-    // Merge each country’s result into a single object
-    for (const obj of results) {
-      Object.assign(result, obj);
+    if (!storedSuccessfully) {
+      const fallbackSuccess = await loadFallbackData(AMERICAS_CODE);
+      if (!fallbackSuccess) {
+        lastError = americasRows?.length
+          ? 'No data available for the Americas'
+          : lastError ?? 'Failed to fetch or process data for the Americas';
+      }
     }
-    return result;
+    const cachedAfterFetch = await readCountriesGeoJson(regionCodes);
+    const stored =
+      cachedAfterFetch[AMERICAS_CODE] ?? cachedBeforeFetch[AMERICAS_CODE];
+    if (stored) {
+      return { [AMERICAS_CODE]: stored };
+    }
+    if (lastError) {
+      return { [AMERICAS_CODE]: { error: lastError } };
+    }
+    return { [AMERICAS_CODE]: { type: 'FeatureCollection', features: [] } };
   } catch (error) {
     console.error(error);
     return null;
