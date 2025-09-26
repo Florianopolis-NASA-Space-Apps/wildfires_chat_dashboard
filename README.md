@@ -64,7 +64,7 @@ REACT_APP_OPENAI_API_KEY="sk-your_openai_key"
 
 ## 🗂️ Repository Tour
 
-- `src/pages/ConsolePage.tsx` — top-level layout, dataset toggles, overlays, and slide deck lightbox.
+- `src/pages/Dashboard.tsx` — top-level layout, dataset toggles, overlays, and slide deck lightbox.
 - `src/components/mbox/` — Mapbox integration, clustering layers, and observation highlights.
 - `src/components/realtime-voice/` — Voice modal, audio pipeline, and custom tool handlers.
 - `src/utils/` — NASA API client, sqlite helpers, geocoding utilities, and waveform rendering helpers.

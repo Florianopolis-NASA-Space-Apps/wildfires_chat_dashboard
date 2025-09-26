@@ -18,7 +18,11 @@ export function SlideDeckLightbox({
   return (
     <div className="slide-deck-lightbox">
       <div className="lightbox-content">
-        <button className="close-button" onClick={onClose} aria-label="Close slide deck">
+        <button
+          className="close-button"
+          onClick={onClose}
+          aria-label="Close slide deck"
+        >
           <X />
         </button>
         <iframe
@@ -27,7 +31,7 @@ export function SlideDeckLightbox({
           width="960"
           height="569"
           allowFullScreen
-          title="Presentation Slide Deck"
+          title="Presentation"
         />
       </div>
     </div>

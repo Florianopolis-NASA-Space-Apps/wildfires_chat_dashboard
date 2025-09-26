@@ -1,4 +1,4 @@
-import type { MapMarkerDetails } from '../../components/mbox/MBox';
+import type { MapMarkerDetails } from '../mbox/MBox';
 import type { BoundingBoxObservationStats } from '../../utils/wildfireDb';
 
 interface MapInformationOverlayProps {
@@ -38,7 +38,8 @@ export function MapInformationOverlay({
                 : `${markerInfo.lat.toFixed(2)}, ${markerInfo.lng.toFixed(2)}`}
             </div>
             <div className="map-overlay-coords">
-              Lat: {markerInfo.lat.toFixed(2)} · Lng: {markerInfo.lng.toFixed(2)}
+              Lat: {markerInfo.lat.toFixed(2)} · Lng:{' '}
+              {markerInfo.lng.toFixed(2)}
             </div>
             {markerInfo.temperature && (
               <div>
@@ -65,26 +66,28 @@ export function MapInformationOverlay({
         {observationValue !== null && (
           <div className="map-overlay-section">
             <div className="map-overlay-heading">Observation Query</div>
+            <div>Wildfire Count: {observationValue.count.toLocaleString()}</div>
             <div>
-              Wildfire Count: {observationValue.count.toLocaleString()}
-            </div>
-            <div>
-              Brightness (avg/min/max): {formatStatValue(observationValue.brightness.average)} /
+              Brightness (avg/min/max):{' '}
+              {formatStatValue(observationValue.brightness.average)} /
               {formatStatValue(observationValue.brightness.minimum)} /
               {formatStatValue(observationValue.brightness.maximum)}
             </div>
             <div>
-              Fire Radiative Power (avg/min/max): {formatStatValue(observationValue.frp.average)} /
+              Fire Radiative Power (avg/min/max):{' '}
+              {formatStatValue(observationValue.frp.average)} /
               {formatStatValue(observationValue.frp.minimum)} /
               {formatStatValue(observationValue.frp.maximum)}
             </div>
             <div>
-              Pixel Width (scan) avg/min/max: {formatStatValue(observationValue.scan.average)} /
+              Pixel Width (scan) avg/min/max:{' '}
+              {formatStatValue(observationValue.scan.average)} /
               {formatStatValue(observationValue.scan.minimum)} /
               {formatStatValue(observationValue.scan.maximum)}
             </div>
             <div>
-              Pixel Height (track) avg/min/max: {formatStatValue(observationValue.track.average)} /
+              Pixel Height (track) avg/min/max:{' '}
+              {formatStatValue(observationValue.track.average)} /
               {formatStatValue(observationValue.track.minimum)} /
               {formatStatValue(observationValue.track.maximum)}
             </div>

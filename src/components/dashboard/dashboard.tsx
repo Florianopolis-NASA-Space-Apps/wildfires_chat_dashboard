@@ -1,31 +1,24 @@
-/**
- * You can connect directly to OpenAI by setting the following environment variables:
- * Optionally override the websocket endpoint with REACT_APP_OPENAI_REALTIME_URL=
- */
-
 import { useEffect, useCallback, useMemo, useState } from 'react';
-import { ExternalLink } from 'react-feather';
-import { Button } from '../components/button/Button';
-import './ConsolePage.scss';
-import { MBox, IMapCoords, MapMarkerDetails } from '../components/mbox/MBox';
-import { Spinner } from '../components/spinner/Spinner';
-import { RealtimeVoiceModal } from '../components/realtime-voice/RealtimeVoiceModal';
-import { DateRangeModal } from '../components/date-range/DateRangeModal';
+import { MBox, IMapCoords, MapMarkerDetails } from '../mbox/MBox';
+import { RealtimeVoiceModal } from '../realtime-voice/RealtimeVoiceModal';
+import { DateRangeModal } from '../date-range/DateRangeModal';
 import {
   formatDateForRequest,
   getDefaultDateRange,
   getInclusiveDaySpan,
   type DateRange,
-} from '../utils/dates';
-import type { BoundingBoxObservationStats } from '../utils/wildfireDb';
-import { COLORS } from '../constants/colors';
-import { ConsoleHeader } from './components/ConsoleHeader';
-import { HackathonWinners } from './components/HackathonWinners';
-import { MapInformationOverlay } from './components/MapInformationOverlay';
-import { SlideDeckLightbox } from './components/SlideDeckLightbox';
-import { SLIDE_DECK_URL } from '../constants/links';
+} from '../../utils/dates';
+import type { BoundingBoxObservationStats } from '../../utils/wildfireDb';
+import { ConsoleHeader } from '../console-header/ConsoleHeader';
+import { HackathonWinners } from '../hackathon-winners/HackathonWinners';
+import { MapInformationOverlay } from '../map-information-overlay/MapInformationOverlay';
+import { SlideDeckLightbox } from '../slide-deck-lightbox/SlideDeckLightbox';
+import { SLIDE_DECK_URL } from '../../constants/links';
+import { ConsoleFooter } from '../console-footer/ConsoleFooter';
+import { MapLoadingModal } from '../map-loading-modal/MapLoadingModal';
+import './dashboard.scss';
 
-export function ConsolePage() {
+export function Dashboard() {
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
@@ -156,7 +149,7 @@ export function ConsolePage() {
   }, [isLargeScreen]);
 
   return (
-    <div data-component="ConsolePage">
+    <div data-component="Dashboard">
       <ConsoleHeader
         isLargeScreen={isLargeScreen}
         onOpenSlideDeck={openSlideDeck}
@@ -172,32 +165,7 @@ export function ConsolePage() {
               numberOfDays={selectedNumberOfDays}
               startDate={selectedStartDate}
             />
-            {loadingModalState !== 'hidden' && (
-              <div
-                className={`map-loading-modal map-loading-modal--${loadingModalState}`}
-                role="status"
-                aria-live="polite"
-              >
-                {loadingModalState === 'loading' ? (
-                  <Spinner size={36} color={COLORS.navy} />
-                ) : (
-                  <div className="map-loading-checkmark" aria-hidden="true">
-                    <svg
-                      className="map-loading-checkmark-icon"
-                      viewBox="0 0 24 24"
-                      focusable="false"
-                    >
-                      <path d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                )}
-                <div className="map-loading-text">
-                  {loadingModalState === 'loading'
-                    ? 'Retrieving wildfire observations...'
-                    : 'Wildfire observations ready!'}
-                </div>
-              </div>
-            )}
+            <MapLoadingModal state={loadingModalState} />
             <HackathonWinners
               isVisible={isSpaceAppsModalVisible}
               onDismiss={dismissSpaceAppsModal}
@@ -230,22 +198,10 @@ export function ConsolePage() {
             )}
           </div>
         </div>
-        {!isLargeScreen && (
-          <Button
-            icon={ExternalLink}
-            iconPosition="end"
-            style={{
-              fontSize: 18,
-              textAlign: 'center',
-              backgroundColor: COLORS.sand,
-              alignSelf: 'flex-end',
-              marginTop: -10,
-              marginBottom: -10,
-            }}
-            label={`Presentation Slide Deck`}
-            onClick={openSlideDeck}
-          />
-        )}
+        <ConsoleFooter
+          isLargeScreen={isLargeScreen}
+          onOpenSlideDeck={openSlideDeck}
+        />
       </div>
       <SlideDeckLightbox
         isOpen={isLightboxOpen}

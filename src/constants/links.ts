@@ -14,3 +14,6 @@ export const OPEN_METEO_FORECAST_URL = 'https://api.open-meteo.com/v1/forecast';
 
 export const OPEN_METEO_ARCHIVE_URL =
   'https://archive-api.open-meteo.com/v1/archive';
+
+export const GITHUB_REPO_URL =
+  'https://github.com/Florianopolis-NASA-Space-Apps/wildfires_chat_dashboard';

@@ -1,5 +1,6 @@
-import { ExternalLink } from 'react-feather';
-import { Button } from '../../components/button/Button';
+import { ExternalLink, GitHub } from 'react-feather';
+import { Button } from '../button/Button';
+import { GITHUB_REPO_URL } from '../../constants/links';
 
 const LOGO_IMAGE_SIZE = 130;
 
@@ -35,13 +36,36 @@ export function ConsoleHeader({
         </div>
       </div>
       {isLargeScreen && (
-        <div style={{ flexDirection: 'row' }}>
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'flex-end',
+          }}
+        >
+          <Button
+            icon={GitHub}
+            iconPosition="end"
+            buttonStyle="flush"
+            style={{ fontSize: 14, textAlign: 'right' }}
+            label="Codebase"
+            onClick={() => {
+              const newWindow = window.open(
+                GITHUB_REPO_URL,
+                '_blank',
+                'noopener,noreferrer'
+              );
+              if (newWindow) {
+                newWindow.opener = null;
+              }
+            }}
+          />
           <Button
             icon={ExternalLink}
             iconPosition="end"
             buttonStyle="flush"
-            style={{ fontSize: 18, textAlign: 'right' }}
-            label="Presentation Slide Deck"
+            style={{ fontSize: 14, textAlign: 'right' }}
+            label="Presentation"
             onClick={onOpenSlideDeck}
           />
         </div>

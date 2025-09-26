@@ -1,9 +1,9 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { initializeColorVariables } from './constants/colors';
-import './constants/root.css';
-import App from './App';
 import reportWebVitals from './reportWebVitals';
+import { Dashboard } from './components/dashboard/dashboard';
+import './constants/root.css';
 
 initializeColorVariables();
 
@@ -12,7 +12,15 @@ const root = ReactDOM.createRoot(
 );
 root.render(
   <React.StrictMode>
-    <App />
+    <div
+      style={{
+        height: '100%',
+        width: '100%',
+        position: 'relative',
+      }}
+    >
+      <Dashboard />
+    </div>
   </React.StrictMode>
 );
 
