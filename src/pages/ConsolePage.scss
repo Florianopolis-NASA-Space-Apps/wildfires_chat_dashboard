@@ -112,6 +112,27 @@
             transition: box-shadow 150ms ease, transform 150ms ease;
           }
         }
+        .map-loading-modal {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 18px 24px;
+          border-radius: 16px;
+          background: #cdbea1;
+          box-shadow: 0 18px 40px rgba(15, 23, 42, 0.22);
+          color: #0f172a;
+          z-index: 11000;
+          max-width: 320px;
+        }
+        .map-loading-text {
+          font-size: 14px;
+          font-weight: 600;
+          line-height: 1.4;
+        }
         .map-space-apps-heading {
           font-size: 13px;
           font-weight: 800;

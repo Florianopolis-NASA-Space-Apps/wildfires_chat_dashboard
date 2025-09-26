@@ -35,7 +35,9 @@ export function ConsolePage() {
    */
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [dataMode, setDataMode] = useState<'live' | 'historical'>('live');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasInitialLoadStarted, setHasInitialLoadStarted] = useState(false);
+  const [showInitialLoadingModal, setShowInitialLoadingModal] = useState(true);
   const [markerInfo, setMarkerInfo] = useState<MapMarkerDetails | null>(null);
   const [mapPosition, setMapPosition] = useState<IMapCoords | null>(null);
   const [lastObservationQuery, setLastObservationQuery] = useState<
@@ -95,6 +97,17 @@ export function ConsolePage() {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  useEffect(() => {
+    if (isLoading && !hasInitialLoadStarted) {
+      setHasInitialLoadStarted(true);
+      return;
+    }
+
+    if (!isLoading && hasInitialLoadStarted && showInitialLoadingModal) {
+      setShowInitialLoadingModal(false);
+    }
+  }, [hasInitialLoadStarted, isLoading, showInitialLoadingModal]);
 
   const openSlideDeck = useCallback(() => {
     if (isLargeScreen) {
@@ -255,6 +268,18 @@ export function ConsolePage() {
               focusCoords={mapPosition}
               marker={markerInfo}
             />
+            {showInitialLoadingModal && (
+              <div
+                className="map-loading-modal"
+                role="status"
+                aria-live="polite"
+              >
+                <Spinner size={36} color="#000080" />
+                <div className="map-loading-text">
+                  {'Retrieving wildfire observations...'}
+                </div>
+              </div>
+            )}
             {isSpaceAppsModalVisible && (
               <div
                 className="map-space-apps-modal"
