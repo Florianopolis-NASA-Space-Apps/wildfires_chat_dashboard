@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useCallback, useMemo, useState } from 'react';
-import { X, ExternalLink } from 'react-feather';
+import { ExternalLink } from 'react-feather';
 import { Button } from '../components/button/Button';
 import './ConsolePage.scss';
 import { MBox, IMapCoords, MapMarkerDetails } from '../components/mbox/MBox';
@@ -19,19 +19,13 @@ import {
 } from '../utils/dates';
 import type { BoundingBoxObservationStats } from '../utils/wildfireDb';
 import { COLORS } from '../constants/colors';
+import { ConsoleHeader } from './components/ConsoleHeader';
+import { HackathonWinners } from './components/HackathonWinners';
+import { MapInformationOverlay } from './components/MapInformationOverlay';
+import { SlideDeckLightbox } from './components/SlideDeckLightbox';
 
 const SLIDE_DECK_LINK =
   'https://docs.google.com/presentation/d/e/2PACX-1vTezgMfwMSMOTV1xAERxRqVY9TMX-bF-45w2v5gP4jbs8Wy1t_H3u5kTwkxNfQFcA/embed?start=false&loop=false&delayms=60000';
-
-function formatStatValue(value: number | null): string {
-  if (value === null || Number.isNaN(value)) {
-    return '--';
-  }
-  return value.toLocaleString(undefined, {
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 1,
-  });
-}
 
 export function ConsolePage() {
   /**
@@ -44,22 +38,24 @@ export function ConsolePage() {
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [dataMode, setDataMode] = useState<'live' | 'historical'>('live');
   const [isLoading, setIsLoading] = useState(true);
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+  const [markerInfo, setMarkerInfo] = useState<MapMarkerDetails | null>(null);
   const [hasInitialLoadStarted, setHasInitialLoadStarted] = useState(false);
+  const [mapPosition, setMapPosition] = useState<IMapCoords | null>(null);
+  const [isSpaceAppsModalVisible, setIsSpaceAppsModalVisible] = useState(true);
+  const [isDatesMinimized, setIsDatesMinimized] = useState(true);
   const [loadingModalState, setLoadingModalState] = useState<
     'loading' | 'success' | 'hidden'
   >('loading');
-  const [markerInfo, setMarkerInfo] = useState<MapMarkerDetails | null>(null);
-  const [mapPosition, setMapPosition] = useState<IMapCoords | null>(null);
   const [lastObservationQuery, setLastObservationQuery] = useState<
     string | null
   >(null);
   const [observationValue, setObservationValue] =
     useState<BoundingBoxObservationStats | null>(null);
-  const [isSpaceAppsModalVisible, setIsSpaceAppsModalVisible] = useState(true);
-  const [isDatesMinimized, setIsDatesMinimized] = useState(true);
   const [selectedDateRange, setSelectedDateRange] = useState<DateRange>(() =>
     getDefaultDateRange()
   );
+  const isLargeScreen = windowWidth >= 654;
 
   const resetRealtimeContext = useCallback(() => {
     setMarkerInfo(null);
@@ -124,14 +120,6 @@ export function ConsolePage() {
     [selectedDateRange.startDate]
   );
 
-  /**
-   * State to track window width
-   */
-  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
-  const isLargeScreen = windowWidth >= 654;
-  /**
-   * Update window width on resize
-   */
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
     window.addEventListener('resize', handleResize);
@@ -162,11 +150,9 @@ export function ConsolePage() {
     if (loadingModalState !== 'success') {
       return;
     }
-
     const hideDelay = window.setTimeout(() => {
       setLoadingModalState('hidden');
     }, 1400);
-
     return () => window.clearTimeout(hideDelay);
   }, [loadingModalState]);
 
@@ -179,48 +165,12 @@ export function ConsolePage() {
     }
   }, [isLargeScreen]);
 
-  /**
-   * Render the application
-   */
   return (
     <div data-component="ConsolePage">
-      <div className="content-top">
-        <div className="content-title">
-          <img
-            src="/logo_fires_satellites.png"
-            style={{
-              width: imageSize,
-              height: imageSize,
-              marginLeft: -30,
-              marginRight: -10,
-            }}
-          />
-          <div>
-            <div>
-              <span style={{ fontSize: 50 }}>{'GROW'}</span>
-            </div>
-            <span style={{ fontSize: isLargeScreen ? 20 : 14 }}>
-              {'Global Recovery and Observation of Wildfires'}
-            </span>
-          </div>
-        </div>
-        {isLargeScreen && (
-          <div style={{ flexDirection: 'row' }}>
-            <Button
-              icon={ExternalLink}
-              iconPosition="end"
-              buttonStyle="flush"
-              style={{ fontSize: 18, textAlign: 'right' }}
-              label={`Presentation Slide Deck`}
-              onClick={openSlideDeck}
-            />
-          </div>
-        )}
-        <img
-          src="/nasa-logo.png"
-          style={{ width: imageSize, height: imageSize }}
-        />
-      </div>
+      <ConsoleHeader
+        isLargeScreen={isLargeScreen}
+        onOpenSlideDeck={openSlideDeck}
+      />
       <div className="content-main">
         <div className="content-right">
           <div className="content-block map" style={{ height: '100%' }}>
@@ -259,127 +209,16 @@ export function ConsolePage() {
                 </div>
               </div>
             )}
-            {isSpaceAppsModalVisible && (
-              <div
-                className="map-space-apps-modal"
-                role="status"
-                aria-live="polite"
-                onClick={() =>
-                  window.open(
-                    'https://www.nasa.gov/learning-resources/stem-engagement-at-nasa/nasa-international-space-apps-challenge-announces-2024-global-winners/',
-                    '_blank'
-                  )
-                }
-              >
-                <button
-                  type="button"
-                  className="map-space-apps-close"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    dismissSpaceAppsModal();
-                  }}
-                  aria-label="Dismiss NASA Space Apps announcement"
-                >
-                  <X size={14} />
-                </button>
-                <div className="map-space-apps-heading">
-                  {'2024 NASA Space Apps Challenge Winners'}
-                </div>
-                <div style={{ height: 10 }} />
-                <div className="map-space-apps-subheading">
-                  {'🏆 Top 10 out of 10,000 Worldwide Projects (Top 1%)'}
-                </div>
-              </div>
-            )}
+            <HackathonWinners
+              isVisible={isSpaceAppsModalVisible}
+              onDismiss={dismissSpaceAppsModal}
+            />
             {isLargeScreen && (
-              <div className="map-information-overlay">
-                {(markerInfo || observationValue !== null) && (
-                  <div className="map-overlay-panel">
-                    {markerInfo && (
-                      <div className="map-overlay-section">
-                        <div className="map-overlay-heading">
-                          Selected Location
-                        </div>
-                        <div>
-                          {markerInfo.location &&
-                          markerInfo.location.trim().length
-                            ? markerInfo.location
-                            : `${markerInfo.lat.toFixed(
-                                2
-                              )}, ${markerInfo.lng.toFixed(2)}`}
-                        </div>
-                        <div className="map-overlay-coords">
-                          Lat: {markerInfo.lat.toFixed(2)} · Lng:{' '}
-                          {markerInfo.lng.toFixed(2)}
-                        </div>
-                        {markerInfo.temperature && (
-                          <div>
-                            Temperature:{' '}
-                            {markerInfo.temperature.value.toFixed(1)}{' '}
-                            {markerInfo.temperature.units}
-                          </div>
-                        )}
-                        {markerInfo.wind_speed && (
-                          <div>
-                            Wind: {markerInfo.wind_speed.value.toFixed(1)}{' '}
-                            {markerInfo.wind_speed.units}
-                          </div>
-                        )}
-                        {markerInfo.daysSinceRain !== undefined &&
-                          markerInfo.daysSinceRain !== null && (
-                            <div>
-                              {markerInfo.daysSinceRain === -1
-                                ? 'Last rain more than 10 days ago'
-                                : `Days since rain: ${markerInfo.daysSinceRain}`}
-                            </div>
-                          )}
-                      </div>
-                    )}
-                    {observationValue !== null && (
-                      <div className="map-overlay-section">
-                        <div className="map-overlay-heading">
-                          Observation Query
-                        </div>
-                        <div>
-                          Wildfire Count:{' '}
-                          {observationValue.count.toLocaleString()}
-                        </div>
-                        <div>
-                          Brightness (avg/min/max):{' '}
-                          {formatStatValue(observationValue.brightness.average)}{' '}
-                          /
-                          {formatStatValue(observationValue.brightness.minimum)}{' '}
-                          /
-                          {formatStatValue(observationValue.brightness.maximum)}
-                        </div>
-                        <div>
-                          Fire Radiative Power (avg/min/max):{' '}
-                          {formatStatValue(observationValue.frp.average)} /
-                          {formatStatValue(observationValue.frp.minimum)} /
-                          {formatStatValue(observationValue.frp.maximum)}
-                        </div>
-                        <div>
-                          Pixel Width (scan) avg/min/max:{' '}
-                          {formatStatValue(observationValue.scan.average)} /
-                          {formatStatValue(observationValue.scan.minimum)} /
-                          {formatStatValue(observationValue.scan.maximum)}
-                        </div>
-                        <div>
-                          Pixel Height (track) avg/min/max:{' '}
-                          {formatStatValue(observationValue.track.average)} /
-                          {formatStatValue(observationValue.track.minimum)} /
-                          {formatStatValue(observationValue.track.maximum)}
-                        </div>
-                        {lastObservationQuery && (
-                          <pre className="map-overlay-query">
-                            {lastObservationQuery}
-                          </pre>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
+              <MapInformationOverlay
+                markerInfo={markerInfo}
+                observationValue={observationValue}
+                lastObservationQuery={lastObservationQuery}
+              />
             )}
             <RealtimeVoiceModal
               onMarkerUpdate={updateMarkerInfo}
@@ -419,24 +258,11 @@ export function ConsolePage() {
           />
         )}
       </div>
-      {isLightboxOpen && (
-        <div className="slide-deck-lightbox">
-          <div className="lightbox-content">
-            <button className="close-button" onClick={closeLightbox}>
-              <X />
-            </button>
-            <iframe
-              src={SLIDE_DECK_LINK}
-              frameBorder="0"
-              width="960"
-              height="569"
-              allowFullScreen={true}
-            ></iframe>
-          </div>
-        </div>
-      )}
+      <SlideDeckLightbox
+        isOpen={isLightboxOpen}
+        slideDeckUrl={SLIDE_DECK_LINK}
+        onClose={closeLightbox}
+      />
     </div>
   );
 }
-
-const imageSize = 130;
