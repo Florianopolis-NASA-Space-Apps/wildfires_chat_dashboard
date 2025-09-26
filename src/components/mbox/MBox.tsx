@@ -28,16 +28,19 @@ export const MBox = ({
   isLargeScreen,
   focusCoords,
   marker,
+  numberOfDays,
 }: {
   isLargeScreen: boolean;
   dataMode: 'live' | 'historical';
   setIsLoading: (loading: boolean) => void;
   focusCoords: IMapCoords | null;
   marker: MapMarkerDetails | null;
+  numberOfDays: string;
 }) => {
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const [liveData, setLiveData] = useState<FeatureCollection | null>(null);
+  const lastNumberOfDaysRef = useRef<string | null>(null);
   const markerRef = useRef<mapboxgl.Marker | null>(null);
   const popupRef = useRef<mapboxgl.Popup | null>(null);
   const [isMapReady, setIsMapReady] = useState(false);
@@ -50,43 +53,49 @@ export const MBox = ({
       if (!americasSource) return;
 
       if (mode === 'live') {
-        if (liveData && liveData.type === 'FeatureCollection') {
+        if (
+          liveData &&
+          liveData.type === 'FeatureCollection' &&
+          lastNumberOfDaysRef.current === numberOfDays
+        ) {
           americasSource.setData(liveData);
-        } else {
-          const regionCodes = [REGION_CODE];
-          setIsLoading(true);
-          try {
-            const cached = await readCountriesGeoJson(regionCodes);
-            const cachedAmericas = cached[REGION_CODE];
+          return;
+        }
 
-            if (cachedAmericas && cachedAmericas.type === 'FeatureCollection') {
-              americasSource.setData(cachedAmericas);
-            }
+        const regionCodes = [REGION_CODE];
+        setIsLoading(true);
+        try {
+          const cached = await readCountriesGeoJson(regionCodes);
+          const cachedAmericas = cached[REGION_CODE];
 
-            await apiWildfires({
-              numberOfDays: '4',
-            });
-
-            const refreshed = await readCountriesGeoJson(regionCodes);
-            const refreshedAmericas = refreshed[REGION_CODE];
-            if (
-              refreshedAmericas &&
-              refreshedAmericas.type === 'FeatureCollection'
-            ) {
-              americasSource.setData(refreshedAmericas);
-              setLiveData(refreshedAmericas);
-            } else {
-              setLiveData(null);
-            }
-          } finally {
-            setIsLoading(false);
+          if (cachedAmericas && cachedAmericas.type === 'FeatureCollection') {
+            americasSource.setData(cachedAmericas);
           }
+
+          await apiWildfires({
+            numberOfDays,
+          });
+
+          const refreshed = await readCountriesGeoJson(regionCodes);
+          const refreshedAmericas = refreshed[REGION_CODE];
+          if (
+            refreshedAmericas &&
+            refreshedAmericas.type === 'FeatureCollection'
+          ) {
+            americasSource.setData(refreshedAmericas);
+            setLiveData(refreshedAmericas);
+          } else {
+            setLiveData(null);
+          }
+          lastNumberOfDaysRef.current = numberOfDays;
+        } finally {
+          setIsLoading(false);
         }
       } else {
         americasSource.setData('/americas.geojson');
       }
     },
-    [liveData, setIsLoading]
+    [liveData, numberOfDays, setIsLoading]
   );
 
   const addClusterLayers = useCallback(

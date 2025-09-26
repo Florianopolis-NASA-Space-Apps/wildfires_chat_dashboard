@@ -54,13 +54,18 @@ export const Spinner: React.FC<SpinnerProps> = ({
     <div
       ref={spinnerRef}
       style={{
+        ...style,
         width: `${size}px`,
         height: `${size}px`,
+        minWidth: `${size}px`,
+        minHeight: `${size}px`,
+        aspectRatio: '1 / 1',
         border: `4px solid ${color}`,
         borderTop: '4px solid transparent',
         borderRadius: '50%',
         boxSizing: 'border-box',
-        ...style,
+        display: 'inline-block',
+        flexShrink: 0,
       }}
     />
   );

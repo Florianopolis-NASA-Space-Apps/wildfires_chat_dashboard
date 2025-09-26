@@ -34,6 +34,7 @@ interface RealtimeVoiceModalProps {
   onObservationQueryChange: (query: string | null) => void;
   onObservationValueChange: (value: BoundingBoxObservationStats | null) => void;
   onResetContext: () => void;
+  isLargeScreen: boolean;
 }
 
 function toFiniteNumber(value: unknown): number | null {
@@ -101,6 +102,7 @@ export function RealtimeVoiceModal({
   onObservationQueryChange,
   onObservationValueChange,
   onResetContext,
+  isLargeScreen,
 }: RealtimeVoiceModalProps) {
   const [voiceStatus, setVoiceStatus] = useState<VoiceSessionStatus>('idle');
   const [voiceError, setVoiceError] = useState<string | null>(null);
@@ -109,6 +111,7 @@ export function RealtimeVoiceModal({
   const [expandedEventIndex, setExpandedEventIndex] = useState<number | null>(
     null
   );
+  const [hasPressedStart, setHasPressedStart] = useState(false);
   const voiceStatusRef = useRef<VoiceSessionStatus>('idle');
   const clientRef = useRef<RealtimeClient | null>(null);
   const recorderRef = useRef<WavRecorder | null>(null);
@@ -133,6 +136,9 @@ export function RealtimeVoiceModal({
   }, []);
 
   const voiceStatusLabel = useMemo(() => {
+    if (!hasPressedStart) {
+      return;
+    }
     switch (voiceStatus) {
       case 'idle':
         return 'Idle';
@@ -597,6 +603,7 @@ export function RealtimeVoiceModal({
       return;
     }
 
+    setHasPressedStart(true);
     setVoiceError(null);
     updateVoiceStatus('authorizing');
 
@@ -802,7 +809,9 @@ export function RealtimeVoiceModal({
       <div className="realtime-voice-modal__header">
         <div className="realtime-voice-modal__status">
           <span className="realtime-voice-modal__title">Voice Assistant</span>
-          <span>{voiceStatusLabel}</span>
+          <span className="realtime-voice-modal__subtitle">
+            {voiceStatusLabel}
+          </span>
         </div>
         <div className="realtime-voice-modal__controls">
           {voiceStatus === 'running' ? (
@@ -814,13 +823,25 @@ export function RealtimeVoiceModal({
               onClick={stopVoiceSession}
             />
           ) : (
-            <Button
-              icon={Mic}
-              label={isSessionActive ? 'Starting…' : 'Start'}
-              className="realtime-voice-modal__start-button"
-              disabled={isSessionActive}
-              onClick={startVoiceSession}
-            />
+            <div className="realtime-voice-modal__start-wrapper">
+              {!hasPressedStart && !isSessionActive && (
+                <div
+                  className="realtime-voice-modal__start-arrow"
+                  aria-hidden="true"
+                >
+                  <span className="realtime-voice-modal__start-arrow-icon">
+                    ↓
+                  </span>
+                </div>
+              )}
+              <Button
+                icon={Mic}
+                label={isSessionActive ? 'Starting…' : 'START'}
+                className="realtime-voice-modal__start-button"
+                disabled={isSessionActive}
+                onClick={startVoiceSession}
+              />
+            </div>
           )}
           {(isSessionActive ||
             !!realtimeEvents.length ||
@@ -847,6 +868,7 @@ export function RealtimeVoiceModal({
       )}
 
       {!!conversationItems.length &&
+        isLargeScreen &&
         conversationItems.map((item: any) => {
           const roleLabel = (item.role || item.type || 'item') as string;
           const normalizedRole = roleLabel.toLowerCase();
@@ -856,26 +878,25 @@ export function RealtimeVoiceModal({
           const textContent = item?.formatted?.text?.trim() || '';
           let message = transcript || textContent || '[audio message]';
           let detail: string | null = null;
-
           if (item.type === 'function_call' && item.formatted?.tool) {
             return null;
-            message = `Tool call → ${item.formatted.tool.name}`;
-            const args = item.formatted.tool.arguments;
-            if (typeof args === 'string' && args.trim().length) {
-              detail = prettyPrintMaybeJson(args);
-            }
+            // message = `Tool call → ${item.formatted.tool.name}`;
+            // const args = item.formatted.tool.arguments;
+            // if (typeof args === 'string' && args.trim().length) {
+            //   detail = prettyPrintMaybeJson(args);
+            // }
           } else if (item.type === 'function_call_output') {
             return null;
-            message = 'Tool result';
-            const output =
-              typeof item.formatted?.output === 'string'
-                ? item.formatted.output
-                : typeof item.output === 'string'
-                ? item.output
-                : '';
-            if (output.trim().length) {
-              detail = prettyPrintMaybeJson(output);
-            }
+            // message = 'Tool result';
+            // const output =
+            //   typeof item.formatted?.output === 'string'
+            //     ? item.formatted.output
+            //     : typeof item.output === 'string'
+            //     ? item.output
+            //     : '';
+            // if (output.trim().length) {
+            //   detail = prettyPrintMaybeJson(output);
+            // }
           }
           return (
             <div className="realtime-voice-modal__body">

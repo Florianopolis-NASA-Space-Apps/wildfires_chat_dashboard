@@ -1,0 +1,153 @@
+.date-range-modal-overlay {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  display: flex;
+  justify-content: flex-end;
+  max-width: calc(100% - 32px);
+  pointer-events: none;
+  z-index: 11000;
+}
+
+[data-component='DateRangeModal'] {
+  display: flex;
+  flex-direction: column;
+  width: min(320px, 100%);
+  background: linear-gradient(135deg, #cdbea199, #cdbea1);
+  border-radius: 18px;
+  box-shadow: 0 22px 48px rgba(15, 23, 42, 0.24);
+  padding: 24px;
+  gap: 20px;
+  font-family: 'Roboto Mono', monospace;
+  color: #0f172a;
+  pointer-events: auto;
+}
+
+.date-range-modal__minimized {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 18px;
+  border-radius: 999px;
+  border: none;
+  background: rgba(205, 190, 161, 0.9);
+  font-family: 'Roboto Mono', monospace;
+  color: #0f172a;
+  cursor: pointer;
+  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.18);
+  pointer-events: auto;
+  transition: transform 150ms ease, box-shadow 150ms ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 20px 40px rgba(15, 23, 42, 0.22);
+  }
+
+  &:active {
+    transform: translateY(1px);
+  }
+}
+
+.date-range-modal__minimized-label {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+  text-align: left;
+
+  span {
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    opacity: 0.8;
+  }
+
+  strong {
+    font-size: 13px;
+    font-weight: 600;
+  }
+}
+
+.date-range-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+
+  h2 {
+    font-size: 18px;
+    margin: 0;
+  }
+}
+
+.date-range-modal__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(148, 163, 184, 0.24);
+  cursor: pointer;
+  transition: background 150ms ease, transform 150ms ease;
+
+  &:hover {
+    background: rgba(148, 163, 184, 0.32);
+    transform: scale(1.05);
+  }
+
+  &:active {
+    transform: scale(0.97);
+  }
+}
+
+.date-range-modal__body {
+  display: grid;
+  gap: 18px;
+}
+
+.date-range-input {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12px;
+
+  input[type='date'] {
+    font-family: inherit;
+    font-size: 14px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    background: rgba(248, 250, 252, 0.9);
+    color: inherit;
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+
+    &:focus {
+      outline: none;
+      border-color: rgba(234, 88, 12, 0.6);
+      box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.18);
+    }
+  }
+}
+
+.date-range-modal__error {
+  font-size: 12px;
+  font-weight: 600;
+  color: #dc2626;
+}
+
+.date-range-modal__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+@media (max-width: 480px) {
+  [data-component='DateRangeModal'] {
+    padding: 20px;
+    max-width: none;
+  }
+  .date-range-modal__header h2 {
+    font-size: 16px;
+  }
+}
