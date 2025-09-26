@@ -425,20 +425,12 @@ export function DateRangeModal({
     >
       <div className="date-range-modal" data-component="DateRangeModal">
         <div className="date-range-modal__header">
-          <h2 id="date-range-modal-title" style={{ fontWeight: 900 }}>
-            Select Timeframe
-          </h2>
-          <button
-            type="button"
-            className="date-range-modal__close"
-            aria-label="Minimize timeframe selector"
-            onClick={() => {
-              setError(null);
-              onMinimize();
-            }}
+          <h2
+            id="date-range-modal-title"
+            style={{ fontWeight: 900, textAlign: 'center' }}
           >
-            <Minimize2 size={16} />
-          </button>
+            Wildfire Dates
+          </h2>
         </div>
         <div className="date-range-modal__body">
           <div className="date-range-modal__summary">

@@ -39,12 +39,19 @@ export function HackathonWinners({
       >
         <X size={14} />
       </button>
-      <div className="map-space-apps-heading">
+      <div
+        className="map-space-apps-heading"
+        style={{ fontWeight: 900, fontSize: 16 }}
+      >
         {'2024 NASA Space Apps Challenge Winners'}
       </div>
       <div style={{ height: 10 }} />
-      <div className="map-space-apps-subheading">
+      <div className="map-space-apps-subheading" style={{ fontWeight: 700 }}>
         {'🏆 Top 10 out of 10,000 Worldwide Projects (Top 1%)'}
+      </div>
+      <div style={{ height: 10 }} />
+      <div className="map-space-apps-subheading" style={{ fontWeight: 600 }}>
+        {'🇧🇷 Florianópolis, Brazil'}
       </div>
     </div>
   );

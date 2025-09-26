@@ -28,7 +28,7 @@ export function ConsoleHeader({
         />
         <div>
           <div>
-            <span style={{ fontSize: 50 }}>{'GROW'}</span>
+            <span style={{ fontSize: 50, fontWeight: 700 }}>{'GROW'}</span>
           </div>
           <span style={{ fontSize: isLargeScreen ? 20 : 14 }}>
             {'Global Recovery and Observation of Wildfires'}
