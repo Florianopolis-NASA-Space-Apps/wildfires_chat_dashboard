@@ -12,6 +12,13 @@ export interface IMapCoords {
   lng: number;
 }
 
+export interface MapMarkerDetails extends IMapCoords {
+  location?: string;
+  temperature?: { value: number; units: string } | null;
+  wind_speed?: { value: number; units: string } | null;
+  daysSinceRain?: number | null;
+}
+
 const P2COORDS: IMapCoords = { lat: -10, lng: -78.3355236 };
 const REGION_CODE = 'AMERICAS' as const;
 
@@ -19,14 +26,21 @@ export const MBox = ({
   dataMode,
   setIsLoading,
   isLargeScreen,
+  focusCoords,
+  marker,
 }: {
   isLargeScreen: boolean;
   dataMode: 'live' | 'historical';
   setIsLoading: (loading: boolean) => void;
+  focusCoords: IMapCoords | null;
+  marker: MapMarkerDetails | null;
 }) => {
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const [liveData, setLiveData] = useState<FeatureCollection | null>(null);
+  const markerRef = useRef<mapboxgl.Marker | null>(null);
+  const popupRef = useRef<mapboxgl.Popup | null>(null);
+  const [isMapReady, setIsMapReady] = useState(false);
 
   const setMapData = useCallback(
     async (map: mapboxgl.Map, mode: 'live' | 'historical') => {
@@ -137,8 +151,8 @@ export const MBox = ({
       mapRef.current = new mapboxgl.Map({
         container: mapContainerRef.current,
         style: 'mapbox://styles/mapbox/satellite-v9',
-        center: [P2COORDS.lat, P2COORDS.lng],
-        zoom: 10.12,
+        center: [P2COORDS.lng, P2COORDS.lat],
+        zoom: 2.5,
       });
 
       mapRef.current.on('load', () => {
@@ -153,27 +167,115 @@ export const MBox = ({
 
         mapRef.current &&
           addClusterLayers(mapRef.current, 'wildfires-americas', 'americas');
+        setIsMapReady(true);
       });
     }
 
     return () => {
+      markerRef.current?.remove();
+      popupRef.current?.remove();
       mapRef.current && mapRef.current.remove();
+      markerRef.current = null;
+      popupRef.current = null;
+      setIsMapReady(false);
     };
   }, []);
 
   useEffect(() => {
-    if (!mapRef.current || !mapRef.current.isStyleLoaded()) return;
+    if (!mapRef.current || !isMapReady) return;
     setMapData(mapRef.current, dataMode);
-  }, [dataMode]);
+  }, [dataMode, isMapReady, setMapData]);
+
+  useEffect(() => {
+    if (!mapRef.current || !isMapReady) return;
+    if (!marker) {
+      markerRef.current?.remove();
+      popupRef.current?.remove();
+      markerRef.current = null;
+      popupRef.current = null;
+      return;
+    }
+
+    const { lat, lng } = marker;
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      return;
+    }
+
+    const map = mapRef.current;
+    if (!markerRef.current) {
+      markerRef.current = new mapboxgl.Marker({ color: '#e22822' });
+    }
+    markerRef.current.setLngLat([lng, lat]).addTo(map);
+
+    if (!popupRef.current) {
+      popupRef.current = new mapboxgl.Popup({
+        closeButton: false,
+        offset: 18,
+        maxWidth: '260px',
+      });
+    }
+
+    const popupEl = document.createElement('div');
+    popupEl.className = 'map-marker-popup';
+
+    const titleEl = document.createElement('div');
+    titleEl.style.fontWeight = '600';
+    titleEl.textContent =
+      marker.location && marker.location.trim().length
+        ? marker.location
+        : `${lat.toFixed(2)}, ${lng.toFixed(2)}`;
+    popupEl.appendChild(titleEl);
+
+    const coordEl = document.createElement('div');
+    coordEl.style.fontSize = '11px';
+    coordEl.style.opacity = '0.7';
+    coordEl.textContent = `Lat ${lat.toFixed(2)} · Lng ${lng.toFixed(2)}`;
+    popupEl.appendChild(coordEl);
+
+    if (marker.temperature) {
+      const tempEl = document.createElement('div');
+      tempEl.textContent = `Temp: ${marker.temperature.value.toFixed(1)} ${marker.temperature.units}`;
+      popupEl.appendChild(tempEl);
+    }
+
+    if (marker.wind_speed) {
+      const windEl = document.createElement('div');
+      windEl.textContent = `Wind: ${marker.wind_speed.value.toFixed(1)} ${marker.wind_speed.units}`;
+      popupEl.appendChild(windEl);
+    }
+
+    if (marker.daysSinceRain !== undefined && marker.daysSinceRain !== null) {
+      const rainEl = document.createElement('div');
+      rainEl.textContent =
+        marker.daysSinceRain === -1
+          ? 'No rain in the past 10+ days'
+          : `Days since rain: ${marker.daysSinceRain}`;
+      popupEl.appendChild(rainEl);
+    }
+
+    popupRef.current.setDOMContent(popupEl);
+    markerRef.current.setPopup(popupRef.current);
+    popupRef.current.addTo(map);
+  }, [marker, isMapReady]);
 
   // Keep updating the map view based on coords
   useEffect(() => {
-    mapRef.current &&
-      mapRef.current.flyTo({
-        center: [P2COORDS.lng, P2COORDS.lat],
-        zoom: isLargeScreen ? 2 : 1,
-      });
-  }, []);
+    if (!mapRef.current || !isMapReady || !focusCoords) return;
+    mapRef.current.flyTo({
+      center: [focusCoords.lng, focusCoords.lat],
+      zoom: isLargeScreen ? 4 : 3,
+      essential: true,
+    });
+  }, [focusCoords, isLargeScreen, isMapReady]);
+
+  useEffect(() => {
+    if (!mapRef.current || !isMapReady || focusCoords) return;
+    mapRef.current.flyTo({
+      center: [P2COORDS.lng, P2COORDS.lat],
+      zoom: isLargeScreen ? 2.5 : 1.5,
+      essential: false,
+    });
+  }, [isLargeScreen, isMapReady, focusCoords]);
 
   return (
     <div className="bg-red-400 h-full">

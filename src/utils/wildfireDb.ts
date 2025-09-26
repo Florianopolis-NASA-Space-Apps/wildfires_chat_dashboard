@@ -318,3 +318,46 @@ export async function clearObservations(): Promise<void> {
   db.run('DELETE FROM observations');
   persistDatabase(db);
 }
+
+export async function runObservationScalarQuery(
+  query: string
+): Promise<number> {
+  const trimmed = query.trim();
+  if (!trimmed) {
+    throw new Error('Query cannot be empty.');
+  }
+
+  const normalized = trimmed.replace(/^\uFEFF/, '');
+  const startsWithSelect = normalized.toLowerCase().startsWith('select');
+  if (!startsWithSelect) {
+    throw new Error('Only SELECT statements are allowed.');
+  }
+
+  const db = await getDatabase();
+
+  let resultSets;
+  try {
+    resultSets = db.exec(normalized);
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : String(error ?? 'Unknown error');
+    throw new Error(`Failed to execute query: ${message}`);
+  }
+
+  if (!resultSets.length || !resultSets[0].values.length) {
+    throw new Error('The query returned no rows.');
+  }
+
+  const firstRow = resultSets[0].values[0];
+  if (!firstRow || !firstRow.length) {
+    throw new Error('The query returned no columns.');
+  }
+
+  const value = firstRow[0];
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) {
+    throw new Error('The query did not return a numeric value.');
+  }
+
+  return numericValue;
+}

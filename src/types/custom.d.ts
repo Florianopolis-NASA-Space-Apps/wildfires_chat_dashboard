@@ -37,6 +37,9 @@ declare module 'sql.js' {
     prepare(sql: string): Statement;
     run(sql: string): void;
     export(): Uint8Array;
+    exec(
+      sql: string
+    ): Array<{ columns: string[]; values: Array<Array<unknown>> }>;
   }
 
   interface InitConfig {

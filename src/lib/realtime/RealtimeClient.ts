@@ -17,6 +17,18 @@ export interface SessionConfig {
   max_response_output_tokens: number | 'inf';
 }
 
+export type RealtimeToolDefinition = Omit<
+  SessionConfig['tools'][number],
+  'type'
+> & {
+  type?: 'function';
+};
+
+type RealtimeToolHandler = (
+  args: Record<string, any>,
+  context: { callId: string; name: string }
+) => unknown | Promise<unknown>;
+
 export interface RealtimeClientOptions {
   url?: string;
   debug?: boolean;
@@ -430,6 +442,8 @@ export class RealtimeClient extends SimpleEventEmitter {
   private inputAudioBuffer = new Int16Array(0);
   private hasUncommittedAudio = false;
   private readonly conversationStore = new ConversationStore();
+  private readonly toolHandlers = new Map<string, RealtimeToolHandler>();
+  private readonly processedToolCallIds = new Set<string>();
 
   constructor({ url, debug = false, apiKey, model }: RealtimeClientOptions = {}) {
     super();
@@ -441,7 +455,10 @@ export class RealtimeClient extends SimpleEventEmitter {
   }
 
   conversation = {
-    clear: () => this.conversationStore.clear(),
+    clear: () => {
+      this.processedToolCallIds.clear();
+      this.conversationStore.clear();
+    },
     getItems: () => this.conversationStore.getItems(),
   } as const;
 
@@ -454,6 +471,7 @@ export class RealtimeClient extends SimpleEventEmitter {
       throw new Error('RealtimeClient is already connected');
     }
     this.sessionCreated = false;
+    this.processedToolCallIds.clear();
 
     const url = this.buildConnectionUrl();
     const protocols = this.buildConnectionProtocols();
@@ -535,6 +553,7 @@ export class RealtimeClient extends SimpleEventEmitter {
     this.inputAudioBuffer = new Int16Array(0);
     this.hasUncommittedAudio = false;
     this.sessionCreated = false;
+    this.processedToolCallIds.clear();
   }
 
   async waitForSessionCreated() {
@@ -555,6 +574,35 @@ export class RealtimeClient extends SimpleEventEmitter {
       session: this.sessionConfig,
     };
     this.sendEvent('session.update', payload);
+  }
+
+  addTool(tool: RealtimeToolDefinition, handler: RealtimeToolHandler) {
+    const normalized: SessionConfig['tools'][number] = {
+      type: 'function',
+      ...tool,
+    };
+    this.toolHandlers.set(normalized.name, handler);
+    const filtered = this.sessionConfig.tools.filter(
+      (existing) => existing.name !== normalized.name
+    );
+    const nextTools = [...filtered, normalized];
+    this.updateSession({ tools: nextTools });
+  }
+
+  removeTool(name: string) {
+    this.toolHandlers.delete(name);
+    const nextTools = this.sessionConfig.tools.filter(
+      (existing) => existing.name !== name
+    );
+    this.updateSession({ tools: nextTools });
+  }
+
+  clearTools() {
+    this.toolHandlers.clear();
+    if (!this.sessionConfig.tools.length) {
+      return;
+    }
+    this.updateSession({ tools: [] });
   }
 
   appendInputAudio(arrayBuffer: ArrayBuffer | Int16Array) {
@@ -629,6 +677,11 @@ export class RealtimeClient extends SimpleEventEmitter {
       if (item.status === 'completed') {
         this.emit('conversation.item.completed', { item });
       }
+      if (item.type === 'function_call' && item.status === 'completed') {
+        this.executeToolCall(item).catch((error) =>
+          this.debugLog('Tool execution failed', error)
+        );
+      }
     }
     if (event.type === 'input_audio_buffer.speech_stopped') {
       this.handleSpeechStopped();
@@ -648,15 +701,7 @@ export class RealtimeClient extends SimpleEventEmitter {
     this.hasUncommittedAudio = false;
     this.inputAudioBuffer = new Int16Array(0);
     try {
-      const responsePayload: Record<string, unknown> = {
-        modalities: [...this.sessionConfig.modalities],
-      };
-      if (this.sessionConfig.instructions) {
-        responsePayload.instructions = this.sessionConfig.instructions;
-      }
-      this.sendEvent('response.create', {
-        response: responsePayload,
-      });
+      this.requestResponse();
     } catch (error) {
       this.debugLog('Failed to request response', error);
     }
@@ -665,6 +710,116 @@ export class RealtimeClient extends SimpleEventEmitter {
   private debugLog(...args: unknown[]) {
     if (this.debug) {
       console.debug('[RealtimeClient]', ...args);
+    }
+  }
+
+  private requestResponse() {
+    const responsePayload: Record<string, unknown> = {
+      modalities: [...this.sessionConfig.modalities],
+    };
+    if (this.sessionConfig.instructions) {
+      responsePayload.instructions = this.sessionConfig.instructions;
+    }
+    this.sendEvent('response.create', {
+      response: responsePayload,
+    });
+  }
+
+  private async executeToolCall(item: ConversationItem) {
+    const toolInfo = item.formatted?.tool;
+    if (!toolInfo) {
+      return;
+    }
+    const callId = toolInfo.call_id;
+    const toolName = toolInfo.name;
+    if (!callId || !toolName) {
+      return;
+    }
+    if (this.processedToolCallIds.has(callId)) {
+      return;
+    }
+    this.processedToolCallIds.add(callId);
+
+    let parsedArgs: Record<string, any> = {};
+    try {
+      const rawArgs = toolInfo.arguments?.trim();
+      if (rawArgs) {
+        parsedArgs = JSON.parse(rawArgs);
+      }
+    } catch (error) {
+      this.sendToolOutput(callId, {
+        error: 'Failed to parse tool arguments',
+        raw: toolInfo.arguments ?? null,
+      });
+      this.safeRequestResponse();
+      return;
+    }
+
+    const handler = this.toolHandlers.get(toolName);
+    if (!handler) {
+      this.sendToolOutput(callId, {
+        error: `No tool registered for "${toolName}"`,
+      });
+      this.safeRequestResponse();
+      return;
+    }
+
+    let result: unknown;
+    try {
+      result = await handler(parsedArgs, { callId, name: toolName });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : String(error ?? 'Unknown error');
+      this.sendToolOutput(callId, { error: message });
+      this.safeRequestResponse();
+      return;
+    }
+
+    try {
+      this.sendToolOutput(callId, result);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : String(error ?? 'Unknown error');
+      this.debugLog('Failed to send tool output', message);
+      return;
+    }
+
+    this.safeRequestResponse();
+  }
+
+  private sendToolOutput(callId: string, payload: unknown) {
+    let output: string;
+    if (typeof payload === 'string') {
+      output = payload;
+    } else if (payload instanceof Error) {
+      output = JSON.stringify({ error: payload.message });
+    } else {
+      try {
+        output = JSON.stringify(payload ?? null);
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : String(error ?? 'Unknown error');
+        output = JSON.stringify({
+          error: 'Failed to serialize tool output',
+          reason: message,
+        });
+      }
+    }
+
+    this.sendEvent('conversation.item.create', {
+      item: {
+        type: 'function_call_output',
+        call_id: callId,
+        output,
+      },
+    });
+  }
+
+  private safeRequestResponse() {
+    try {
+      this.requestResponse();
+    } catch (error) {
+      this.debugLog('Failed to request follow-up response', error);
     }
   }
 

@@ -42,41 +42,6 @@
     gap: 24px;
     flex-direction: column;
 
-    .content-logs {
-      display: flex;
-      flex-direction: column;
-      position: relative;
-      gap: 16px;
-      min-height: 260px;
-      & > .content-actions {
-        flex-grow: 0;
-        flex-shrink: 0;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 16px;
-        flex-wrap: wrap;
-      }
-      .events {
-        border-top: 1px solid #e7e7e7;
-        max-height: 240px;
-        overflow-y: auto;
-      }
-      .conversation {
-        display: flex;
-        flex-shrink: 0;
-        width: 100%;
-        overflow-y: auto;
-        height: 200px;
-        min-height: 0;
-        max-height: 220px;
-        border-top: 1px solid #e7e7e7;
-      }
-      .content-block-body {
-        padding: 16px;
-      }
-    }
-
     .content-right {
       flex: 1; // Change to flex: 1 to make it grow and shrink equally
       flex-direction: column;
@@ -109,6 +74,42 @@
             right: 16px;
           }
         }
+        .map-overlay-panel {
+          position: absolute;
+          top: 16px;
+          right: 16px;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          background: rgba(255, 255, 255, 0.95);
+          padding: 12px 14px;
+          border-radius: 12px;
+          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+          font-size: 12px;
+          max-width: 280px;
+          z-index: 9999;
+        }
+        .map-overlay-section {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+        .map-overlay-heading {
+          font-weight: 600;
+        }
+        .map-overlay-coords {
+          font-size: 11px;
+          opacity: 0.7;
+        }
+        .map-overlay-query {
+          background: rgba(0, 0, 0, 0.05);
+          padding: 8px;
+          border-radius: 8px;
+          font-size: 10px;
+          white-space: pre-wrap;
+          word-break: break-word;
+          margin: 0;
+        }
       }
       & > div.kv {
         height: 250px;
@@ -123,170 +124,15 @@
     }
   }
 
-  .conversation-item {
-    position: relative;
-    display: flex;
-    gap: 16px;
-    margin-bottom: 16px;
-    &:not(:hover) .close {
-      display: none;
-    }
-    .close {
-      border: none;
-      outline: none;
-      position: absolute;
-      top: 0px;
-      right: -20px;
-      background: #aaa;
-      color: #fff;
-      display: flex;
-      border-radius: 16px;
-      padding: 2px;
-      cursor: pointer;
-      align-items: center;
-      justify-content: center;
-      width: 20px;
-      height: 20px;
-      &:hover {
-        background: #696969;
-      }
-      svg {
-        stroke-width: 3;
-        width: 12px;
-        height: 12px;
-      }
-    }
-    .speaker {
-      position: relative;
-      text-align: left;
-      gap: 16px;
-      width: 80px;
-      flex-shrink: 0;
-      margin-right: 16px;
-      &.user {
-        color: #0099ff;
-      }
-      &.assistant {
-        color: #009900;
-      }
-    }
-    .speaker-content {
-      color: #18181b;
-      overflow: hidden;
-      word-wrap: break-word;
-    }
-  }
-
-  .event {
-    border-radius: 3px;
-    white-space: pre;
-    display: flex;
-    padding: 0px;
-    gap: 16px;
-    .event-timestamp {
-      text-align: left;
-      gap: 8px;
-      padding: 4px 0px;
-      width: 80px;
-      flex-shrink: 0;
-      margin-right: 16px;
-    }
-    .event-details {
-      display: flex;
-      flex-direction: column;
-      color: #18181b;
-      gap: 8px;
-      .event-summary {
-        padding: 4px 8px;
-        margin: 0px -8px;
-        &:hover {
-          border-radius: 8px;
-          background-color: #f0f0f0;
-        }
-        cursor: pointer;
-        display: flex;
-        gap: 8px;
-        align-items: center;
-        .event-source {
-          flex-shrink: 0;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          &.client {
-            color: #0099ff;
-          }
-          &.server {
-            color: #009900;
-          }
-          &.error {
-            color: #990000;
-          }
-          svg {
-            stroke-width: 3;
-            width: 12px;
-            height: 12px;
-          }
-        }
-      }
-    }
-  }
-
-  .visualization {
-    position: absolute;
-    display: flex;
-    bottom: 4px;
-    right: 8px;
-    padding: 4px;
-    border-radius: 16px;
-    z-index: 10;
-    gap: 2px;
-    .visualization-entry {
-      position: relative;
-      display: flex;
-      align-items: center;
-      height: 40px;
-      width: 100px;
-      gap: 4px;
-      &.client {
-        color: #0099ff;
-      }
-      &.server {
-        color: #009900;
-      }
-      canvas {
-        width: 100%;
-        height: 100%;
-        color: currentColor;
-      }
-    }
-  }
-
-  .voice-actions {
-    .voice-status {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      font-size: 12px;
-    }
-  }
-
-  .voice-error {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background: #fff3f0;
-    border: 1px solid #ffb8a8;
-    color: #8c2f1c;
-    padding: 8px 12px;
-    border-radius: 8px;
-    font-size: 12px;
-  }
-
   .dataset-controls {
+    align-self: center;
     display: flex;
     flex-direction: column;
     gap: 8px;
+    align-items: center;
     .content-actions {
+      display: flex;
+      align-items: center;
       justify-content: center;
     }
   }
