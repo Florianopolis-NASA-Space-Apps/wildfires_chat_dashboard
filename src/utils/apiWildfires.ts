@@ -21,12 +21,20 @@ async function fetchAmericasWildfireRows({
     throw new Error('Fetch API is not available in this environment');
   }
   const [west, south, east, north] = AMERICAS_BBOX;
-  const baseUrl = `${NASA_FIRMS_AREA_CSV_BASE_URL}/${NASA_MAP_KEY}/${NASA_DATA_SOURCE}/${west},${south},${east},${north}`;
-  const params = new URLSearchParams({ numberOfDays });
+  const parsedDays = Math.floor(Number(numberOfDays));
+  if (!Number.isFinite(parsedDays) || parsedDays < 1 || parsedDays > 10) {
+    throw new Error(
+      `Invalid numberOfDays "${numberOfDays}". Must be between 1 and 10.`
+    );
+  }
+  const dayRange = String(parsedDays);
+  const baseUrl = `${NASA_FIRMS_AREA_CSV_BASE_URL}/${NASA_MAP_KEY}/${NASA_DATA_SOURCE}/${west},${south},${east},${north}/${dayRange}`;
+  const params = new URLSearchParams();
   if (startDate) {
     params.set('startDate', startDate);
   }
-  const url = `${baseUrl}?${params.toString()}`;
+  const query = params.toString();
+  const url = query ? `${baseUrl}?${query}` : baseUrl;
   const response = await fetch(url);
   const text = await response.text();
   if (!response.ok) {
