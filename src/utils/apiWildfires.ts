@@ -7,7 +7,11 @@ const FALLBACK_GEOJSON_PATHS: Record<string, string> = {
   [AMERICAS_CODE]: '/americas.geojson',
 };
 
-const AMERICAS_BBOX: [number, number, number, number] = [-170, -60, -30, 83];
+// North & South America
+// const AMERICAS_BBOX: [number, number, number, number] = [-170, -60, -30, 83];
+
+const WORLD_BBOX: [number, number, number, number] = [-180, -90, 180, 90];
+
 const NASA_DATA_SOURCE = 'MODIS_NRT';
 
 async function fetchAmericasWildfireRows({
@@ -20,7 +24,7 @@ async function fetchAmericasWildfireRows({
   if (typeof fetch === 'undefined') {
     throw new Error('Fetch API is not available in this environment');
   }
-  const [west, south, east, north] = AMERICAS_BBOX;
+  const [west, south, east, north] = WORLD_BBOX;
   const parsedDays = Math.floor(Number(numberOfDays));
   if (!Number.isFinite(parsedDays) || parsedDays < 1 || parsedDays > 10) {
     throw new Error(
@@ -128,7 +132,7 @@ async function loadFallbackData(countryCode: string) {
 const NASA_MAP_KEY = process.env.REACT_APP_NASA_MAP_KEY || '';
 
 export async function apiWildfires({
-  numberOfDays = '4',
+  numberOfDays = '2',
   startDate,
 }: {
   numberOfDays?: string;

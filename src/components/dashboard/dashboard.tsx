@@ -36,7 +36,7 @@ export function Dashboard() {
   const [observationValue, setObservationValue] =
     useState<BoundingBoxObservationStats | null>(null);
   const [selectedDateRange, setSelectedDateRange] = useState<DateRange>(() =>
-    getDefaultDateRange()
+    getDefaultDateRange({ daysBack: 2 })
   );
   const isLargeScreen = windowWidth >= 950;
 

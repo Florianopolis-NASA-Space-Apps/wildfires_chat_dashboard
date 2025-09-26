@@ -126,7 +126,11 @@ export function parseDateArg(value: unknown, label: string): Date {
   return date;
 }
 
-export function getDefaultDateRange(daysBack = 3): DateRange {
+export function getDefaultDateRange({
+  daysBack = 2,
+}: {
+  daysBack?: number;
+}): DateRange {
   const endDate = new Date();
   endDate.setHours(0, 0, 0, 0);
   const startDate = new Date(endDate);
