@@ -1,4 +1,4 @@
-import { StreamProcessorSrc } from './worklets/stream_processor.js';
+import { StreamProcessorSrc } from './worklets/stream_processor.ts';
 import { AudioAnalysis } from './analysis/audio_analysis.js';
 
 /**

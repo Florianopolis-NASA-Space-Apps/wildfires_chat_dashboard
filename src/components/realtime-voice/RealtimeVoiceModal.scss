@@ -2,14 +2,13 @@
   position: absolute;
   bottom: 16px;
   left: 16px;
-  width: 360px;
+  width: 400px;
   max-width: calc(100% - 32px);
   max-height: 60vh;
   background: linear-gradient(
     135deg,
     var(--color-sand),
-    var(--color-sand),
-    rgba(var(--color-sand-rgb), 0.6)
+    rgba(var(--color-sand-rgb), 0.5)
   );
   border-radius: 16px;
   box-shadow: 0 16px 32px rgba(var(--color-slate-900-rgb), 0.18);
@@ -135,6 +134,33 @@
   padding: 8px 12px;
   border-radius: 8px;
   font-size: 12px;
+}
+
+.realtime-voice-modal__starters {
+  background: var(--color-neutral-350);
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--color-charcoal);
+}
+
+.realtime-voice-modal__starters-title {
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.01em;
+}
+
+.realtime-voice-modal__starters-list {
+  margin: 0;
+  padding-left: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  list-style: disc;
+  font-size: 11px;
 }
 
 .realtime-voice-modal__body {

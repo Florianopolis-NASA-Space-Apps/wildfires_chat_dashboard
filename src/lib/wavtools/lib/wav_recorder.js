@@ -1,4 +1,4 @@
-import { AudioProcessorSrc } from './worklets/audio_processor.js';
+import { AudioProcessorSrc } from './worklets/audio_processor.ts';
 import { AudioAnalysis } from './analysis/audio_analysis.js';
 import { WavPacker } from './wav_packer.js';
 
@@ -67,7 +67,7 @@ export class WavRecorder {
     if (audioData instanceof Blob) {
       if (fromSampleRate !== -1) {
         throw new Error(
-          `Can not specify "fromSampleRate" when reading from Blob`,
+          `Can not specify "fromSampleRate" when reading from Blob`
         );
       }
       blob = audioData;
@@ -75,7 +75,7 @@ export class WavRecorder {
     } else if (audioData instanceof ArrayBuffer) {
       if (fromSampleRate !== -1) {
         throw new Error(
-          `Can not specify "fromSampleRate" when reading from ArrayBuffer`,
+          `Can not specify "fromSampleRate" when reading from ArrayBuffer`
         );
       }
       arrayBuffer = audioData;
@@ -95,12 +95,12 @@ export class WavRecorder {
         float32Array = new Float32Array(audioData);
       } else {
         throw new Error(
-          `"audioData" must be one of: Blob, Float32Arrray, Int16Array, ArrayBuffer, Array<number>`,
+          `"audioData" must be one of: Blob, Float32Arrray, Int16Array, ArrayBuffer, Array<number>`
         );
       }
       if (fromSampleRate === -1) {
         throw new Error(
-          `Must specify "fromSampleRate" when reading from Float32Array, In16Array or Array`,
+          `Must specify "fromSampleRate" when reading from Float32Array, In16Array or Array`
         );
       } else if (fromSampleRate < 3000) {
         throw new Error(`Minimum "fromSampleRate" is 3000 (3kHz)`);
@@ -203,7 +203,7 @@ export class WavRecorder {
     if (callback === null && this._deviceChangeCallback) {
       navigator.mediaDevices.removeEventListener(
         'devicechange',
-        this._deviceChangeCallback,
+        this._deviceChangeCallback
       );
       this._deviceChangeCallback = null;
     } else if (callback !== null) {
@@ -272,16 +272,16 @@ export class WavRecorder {
     await this.requestPermission();
     const devices = await navigator.mediaDevices.enumerateDevices();
     const audioDevices = devices.filter(
-      (device) => device.kind === 'audioinput',
+      (device) => device.kind === 'audioinput'
     );
     const defaultDeviceIndex = audioDevices.findIndex(
-      (device) => device.deviceId === 'default',
+      (device) => device.deviceId === 'default'
     );
     const deviceList = [];
     if (defaultDeviceIndex !== -1) {
       let defaultDevice = audioDevices.splice(defaultDeviceIndex, 1)[0];
       let existingIndex = audioDevices.findIndex(
-        (device) => device.groupId === defaultDevice.groupId,
+        (device) => device.groupId === defaultDevice.groupId
       );
       if (existingIndex !== -1) {
         defaultDevice = audioDevices.splice(existingIndex, 1)[0];
@@ -301,7 +301,7 @@ export class WavRecorder {
   async begin(deviceId) {
     if (this.processor) {
       throw new Error(
-        `Already connected: please call .end() to start a new session`,
+        `Already connected: please call .end() to start a new session`
       );
     }
 
@@ -368,7 +368,7 @@ export class WavRecorder {
       console.warn(
         'Warning: Output to speakers may affect sound quality,\n' +
           'especially due to system audio feedback preventative measures.\n' +
-          'use only for debugging',
+          'use only for debugging'
       );
       analyser.connect(context.destination);
     }
@@ -390,7 +390,7 @@ export class WavRecorder {
   getFrequencies(
     analysisType = 'frequency',
     minDecibels = -100,
-    maxDecibels = -30,
+    maxDecibels = -30
   ) {
     if (!this.processor) {
       throw new Error('Session ended: please call .begin() first');
@@ -401,7 +401,7 @@ export class WavRecorder {
       null,
       analysisType,
       minDecibels,
-      maxDecibels,
+      maxDecibels
     );
   }
 
@@ -487,7 +487,7 @@ export class WavRecorder {
     }
     if (!force && this.recording) {
       throw new Error(
-        'Currently recording: please call .pause() first, or call .save(true) to force',
+        'Currently recording: please call .pause() first, or call .save(true) to force'
       );
     }
     this.log('Exporting ...');

@@ -36,7 +36,9 @@ export const noteFrequencyLabels = [];
 for (let i = 1; i <= 8; i++) {
   for (let f = 0; f < octave8Frequencies.length; f++) {
     const freq = octave8Frequencies[f];
+    // @ts-expect-error - this works
     noteFrequencies.push(freq / Math.pow(2, 8 - i));
+    // @ts-expect-error - this works
     noteFrequencyLabels.push(octave8FrequencyLabels[f] + i);
   }
 }

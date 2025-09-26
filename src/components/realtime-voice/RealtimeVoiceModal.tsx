@@ -19,8 +19,19 @@ import {
 } from '../../utils/dates';
 import type { IMapCoords, MapMarkerDetails } from '../mbox/MBox';
 import { COLORS } from '../../constants/colors';
-import { OPEN_METEO_ARCHIVE_URL, OPEN_METEO_FORECAST_URL } from '../../constants/links';
+import {
+  OPEN_METEO_ARCHIVE_URL,
+  OPEN_METEO_FORECAST_URL,
+} from '../../constants/links';
 import './RealtimeVoiceModal.scss';
+
+const CONVERSATION_STARTERS = [
+  '✈️ Fly to Florianópolis',
+  '🔥 How many wildfires are in Brazil?',
+  '🌧️ When was the last rain in Los Angeles?',
+  "☀️ What's the weather like in Buenos Aires?",
+  '🗓️ Change the dates to March 31st - April 4th',
+];
 
 type VoiceSessionStatus =
   | 'idle'
@@ -209,11 +220,7 @@ export function RealtimeVoiceModal({
         const inputCanvas = inputCanvasRef.current;
         if (inputCanvas && recorderRef.current) {
           const frequencies = recorderRef.current.getFrequencies('voice');
-          renderWaveform(
-            inputCanvas,
-            frequencies.values,
-            COLORS.electricBlue
-          );
+          renderWaveform(inputCanvas, frequencies.values, COLORS.electricBlue);
         }
       } catch (err) {
         if (!recorderRef.current) {
@@ -225,11 +232,7 @@ export function RealtimeVoiceModal({
         const outputCanvas = outputCanvasRef.current;
         if (outputCanvas && playerRef.current) {
           const frequencies = playerRef.current.getFrequencies('voice');
-          renderWaveform(
-            outputCanvas,
-            frequencies.values,
-            COLORS.successGreen
-          );
+          renderWaveform(outputCanvas, frequencies.values, COLORS.successGreen);
         }
       } catch (err) {
         if (!playerRef.current) {
@@ -935,7 +938,20 @@ export function RealtimeVoiceModal({
           <span>{voiceError}</span>
         </div>
       )}
-
+      <div
+        className="realtime-voice-modal__starters"
+        aria-live="polite"
+        data-testid="conversation-starters"
+      >
+        <span className="realtime-voice-modal__starters-title">
+          Try saying...
+        </span>
+        <ul className="realtime-voice-modal__starters-list">
+          {CONVERSATION_STARTERS.map((starter) => (
+            <p key={starter}>{starter}</p>
+          ))}
+        </ul>
+      </div>
       {!!conversationItems.length &&
         isLargeScreen &&
         conversationItems.map((item: any, index: number) => {

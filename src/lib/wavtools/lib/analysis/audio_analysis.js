@@ -3,7 +3,7 @@ import {
   noteFrequencyLabels,
   voiceFrequencies,
   voiceFrequencyLabels,
-} from './constants.js';
+} from './audio_constants.ts';
 
 /**
  * Output of AudioAnalysis for the frequency domain of the audio
@@ -35,7 +35,7 @@ export class AudioAnalysis {
     fftResult,
     analysisType = 'frequency',
     minDecibels = -100,
-    maxDecibels = -30,
+    maxDecibels = -30
   ) {
     if (!fftResult) {
       fftResult = new Float32Array(analyser.frequencyBinCount);
@@ -74,7 +74,7 @@ export class AudioAnalysis {
     const normalizedOutput = outputValues.map((v) => {
       return Math.max(
         0,
-        Math.min((v - minDecibels) / (maxDecibels - minDecibels), 1),
+        Math.min((v - minDecibels) / (maxDecibels - minDecibels), 1)
       );
     });
     const values = new Float32Array(normalizedOutput);
@@ -166,14 +166,14 @@ export class AudioAnalysis {
   getFrequencies(
     analysisType = 'frequency',
     minDecibels = -100,
-    maxDecibels = -30,
+    maxDecibels = -30
   ) {
     let fftResult = null;
     if (this.audioBuffer && this.fftResults.length) {
       const pct = this.audio.currentTime / this.audio.duration;
       const index = Math.min(
         (pct * this.fftResults.length) | 0,
-        this.fftResults.length - 1,
+        this.fftResults.length - 1
       );
       fftResult = this.fftResults[index];
     }
@@ -183,7 +183,7 @@ export class AudioAnalysis {
       fftResult,
       analysisType,
       minDecibels,
-      maxDecibels,
+      maxDecibels
     );
   }
 

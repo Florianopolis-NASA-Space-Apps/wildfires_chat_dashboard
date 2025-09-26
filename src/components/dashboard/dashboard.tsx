@@ -38,7 +38,7 @@ export function Dashboard() {
   const [selectedDateRange, setSelectedDateRange] = useState<DateRange>(() =>
     getDefaultDateRange()
   );
-  const isLargeScreen = windowWidth >= 917;
+  const isLargeScreen = windowWidth >= 950;
 
   const resetRealtimeContext = useCallback(() => {
     setMarkerInfo(null);
