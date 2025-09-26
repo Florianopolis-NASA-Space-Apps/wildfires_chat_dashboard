@@ -17,46 +17,32 @@ async function fetchAmericasWildfireRows({
   if (typeof fetch === 'undefined') {
     throw new Error('Fetch API is not available in this environment');
   }
-
   const [west, south, east, north] = AMERICAS_BBOX;
   const url = `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${NASA_MAP_KEY}/${NASA_DATA_SOURCE}/${west},${south},${east},${north}/${numberOfDays}`;
-
   const response = await fetch(url);
-  console.log('response', response);
   const text = await response.text();
-  console.log('text', text);
   if (!response.ok) {
     throw new Error(`Status ${response.status}: ${text.slice(0, 200)}`);
   }
-
   if (!text || text.trim().length === 0) {
     throw new Error('Empty response body');
   }
-
   if (text.trim().startsWith('<')) {
     throw new Error('Received HTML instead of CSV');
   }
-
   const parsed = Papa.parse<Record<string, any>>(text, {
     header: true,
     // @ts-expect-error - Papa types do not include boolean for dynamicTyping
     dynamicTyping: true,
     skipEmptyLines: true,
   });
-
-  console.log('parsed', parsed);
-
   const rows = parsed.data.filter(
     (row: any) =>
       row && row.longitude !== undefined && row.latitude !== undefined
   );
-
-  console.log('rows', rows);
-
   if (!rows.length) {
     throw new Error('No valid rows in CSV');
   }
-
   return rows;
 }
 
@@ -69,7 +55,6 @@ function featureToObservation(row: any) {
   const props = row.properties ?? {};
   const longitude = props.longitude ?? coordinates[0];
   const latitude = props.latitude ?? coordinates[1];
-
   if (
     longitude === undefined ||
     latitude === undefined ||
@@ -78,7 +63,6 @@ function featureToObservation(row: any) {
   ) {
     return null;
   }
-
   return {
     latitude,
     longitude,
@@ -101,20 +85,16 @@ async function loadFallbackData(countryCode: string) {
   if (!fallbackPath || typeof fetch === 'undefined') {
     return null;
   }
-
   try {
     const response = await fetch(fallbackPath);
     if (!response.ok) {
       throw new Error(`Fallback response not OK: ${response.status}`);
     }
-
     const geojson = await response.json();
     const features = Array.isArray(geojson?.features) ? geojson.features : [];
-
     const observations = features
       .map((feature: any) => featureToObservation(feature))
       .filter(Boolean);
-
     if (observations.length) {
       await replaceCountryObservations(countryCode, observations as any[]);
       return true;
@@ -126,7 +106,6 @@ async function loadFallbackData(countryCode: string) {
       fallbackError
     );
   }
-
   return null;
 }
 
@@ -152,10 +131,8 @@ export async function apiWildfires({
       );
       lastError = 'Failed to fetch data for the Americas';
     }
-    console.log('americasRows', americasRows);
     if (americasRows && americasRows.length) {
       try {
-        console.log('rowsForAmericas', americasRows);
         await replaceCountryObservations(AMERICAS_CODE, americasRows as any[]);
         storedSuccessfully = true;
       } catch (storageError) {
@@ -166,29 +143,23 @@ export async function apiWildfires({
         lastError = 'Failed to store data for the Americas';
       }
     }
-
     if (!storedSuccessfully) {
       const fallbackSuccess = await loadFallbackData(AMERICAS_CODE);
-      console.log('fallbackSuccess', fallbackSuccess);
       if (!fallbackSuccess) {
         lastError = americasRows?.length
           ? 'No data available for the Americas'
           : lastError ?? 'Failed to fetch or process data for the Americas';
       }
     }
-
     const cachedAfterFetch = await readCountriesGeoJson(regionCodes);
     const stored =
       cachedAfterFetch[AMERICAS_CODE] ?? cachedBeforeFetch[AMERICAS_CODE];
-
     if (stored) {
       return { [AMERICAS_CODE]: stored };
     }
-
     if (lastError) {
       return { [AMERICAS_CODE]: { error: lastError } };
     }
-
     return { [AMERICAS_CODE]: { type: 'FeatureCollection', features: [] } };
   } catch (error) {
     console.error(error);
