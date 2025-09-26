@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Calendar, Minimize2 } from 'react-feather';
 import { Button } from '../button/Button';
+import {
+  formatDateForInput,
+  parseInputToDate,
+  type DateRange,
+} from '../../utils/dates';
 import './DateRangeModal.scss';
-
-export interface DateRange {
-  startDate: Date;
-  endDate: Date;
-}
 
 interface DateRangeModalProps {
   isMinimized: boolean;
@@ -16,33 +16,6 @@ interface DateRangeModalProps {
   currentRange: DateRange;
   minDate?: Date;
   maxDate?: Date;
-}
-
-function formatDateForInput(date: Date): string {
-  const year = date.getFullYear();
-  const month = `${date.getMonth() + 1}`.padStart(2, '0');
-  const day = `${date.getDate()}`.padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
-function parseInputToDate(value: string): Date | null {
-  if (!value) {
-    return null;
-  }
-  const [yearStr, monthStr, dayStr] = value.split('-');
-  if (!yearStr || !monthStr || !dayStr) {
-    return null;
-  }
-  const year = Number.parseInt(yearStr, 10);
-  const month = Number.parseInt(monthStr, 10) - 1;
-  const day = Number.parseInt(dayStr, 10);
-  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
-    return null;
-  }
-  const date = new Date();
-  date.setFullYear(year, month, day);
-  date.setHours(0, 0, 0, 0);
-  return date;
 }
 
 export function DateRangeModal({

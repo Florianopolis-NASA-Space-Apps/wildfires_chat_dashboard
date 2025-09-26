@@ -11,14 +11,21 @@ const NASA_DATA_SOURCE = 'MODIS_NRT';
 
 async function fetchAmericasWildfireRows({
   numberOfDays,
+  startDate,
 }: {
   numberOfDays: string;
+  startDate?: string;
 }) {
   if (typeof fetch === 'undefined') {
     throw new Error('Fetch API is not available in this environment');
   }
   const [west, south, east, north] = AMERICAS_BBOX;
-  const url = `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${NASA_MAP_KEY}/${NASA_DATA_SOURCE}/${west},${south},${east},${north}/${numberOfDays}`;
+  const baseUrl = `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${NASA_MAP_KEY}/${NASA_DATA_SOURCE}/${west},${south},${east},${north}`;
+  const params = new URLSearchParams({ numberOfDays });
+  if (startDate) {
+    params.set('startDate', startDate);
+  }
+  const url = `${baseUrl}?${params.toString()}`;
   const response = await fetch(url);
   const text = await response.text();
   if (!response.ok) {
@@ -113,8 +120,10 @@ const NASA_MAP_KEY = process.env.REACT_APP_NASA_MAP_KEY || '';
 
 export async function apiWildfires({
   numberOfDays = '4',
+  startDate,
 }: {
   numberOfDays?: string;
+  startDate?: string;
 } = {}) {
   try {
     const regionCodes = [AMERICAS_CODE];
@@ -123,7 +132,10 @@ export async function apiWildfires({
     let lastError: string | null = null;
     let americasRows: Record<string, any>[] | null = null;
     try {
-      americasRows = await fetchAmericasWildfireRows({ numberOfDays });
+      americasRows = await fetchAmericasWildfireRows({
+        numberOfDays,
+        startDate,
+      });
     } catch (error) {
       console.error(
         'Error fetching aggregated wildfire data for the Americas',

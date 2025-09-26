@@ -13,13 +13,13 @@
   display: flex;
   flex-direction: column;
   width: min(320px, 100%);
-  background: linear-gradient(135deg, #cdbea199, #cdbea1);
+  background: linear-gradient(135deg, rgba(var(--color-sand-rgb), 0.6), var(--color-sand));
   border-radius: 18px;
-  box-shadow: 0 22px 48px rgba(15, 23, 42, 0.24);
+  box-shadow: 0 22px 48px rgba(var(--color-slate-900-rgb), 0.24);
   padding: 24px;
   gap: 20px;
   font-family: 'Roboto Mono', monospace;
-  color: #0f172a;
+  color: var(--color-slate-900);
   pointer-events: auto;
 }
 
@@ -30,17 +30,17 @@
   padding: 12px 18px;
   border-radius: 999px;
   border: none;
-  background: rgba(205, 190, 161, 0.9);
+  background: rgba(var(--color-sand-rgb), 0.9);
   font-family: 'Roboto Mono', monospace;
-  color: #0f172a;
+  color: var(--color-slate-900);
   cursor: pointer;
-  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.18);
+  box-shadow: 0 16px 32px rgba(var(--color-slate-900-rgb), 0.18);
   pointer-events: auto;
   transition: transform 150ms ease, box-shadow 150ms ease;
 
   &:hover {
     transform: translateY(-2px);
-    box-shadow: 0 20px 40px rgba(15, 23, 42, 0.22);
+    box-shadow: 0 20px 40px rgba(var(--color-slate-900-rgb), 0.22);
   }
 
   &:active {
@@ -87,12 +87,12 @@
   height: 32px;
   border-radius: 50%;
   border: none;
-  background: rgba(148, 163, 184, 0.24);
+  background: rgba(var(--color-slate-400-rgb), 0.24);
   cursor: pointer;
   transition: background 150ms ease, transform 150ms ease;
 
   &:hover {
-    background: rgba(148, 163, 184, 0.32);
+    background: rgba(var(--color-slate-400-rgb), 0.32);
     transform: scale(1.05);
   }
 
@@ -117,15 +117,15 @@
     font-size: 14px;
     padding: 10px 12px;
     border-radius: 12px;
-    border: 1px solid rgba(15, 23, 42, 0.08);
-    background: rgba(248, 250, 252, 0.9);
+    border: 1px solid rgba(var(--color-slate-900-rgb), 0.08);
+    background: rgba(var(--color-alabaster-rgb), 0.9);
     color: inherit;
     transition: border-color 150ms ease, box-shadow 150ms ease;
 
     &:focus {
       outline: none;
-      border-color: rgba(234, 88, 12, 0.6);
-      box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.18);
+      border-color: rgba(var(--color-orange-bright-rgb), 0.6);
+      box-shadow: 0 0 0 3px rgba(var(--color-orange-bright-rgb), 0.18);
     }
   }
 }
@@ -133,7 +133,7 @@
 .date-range-modal__error {
   font-size: 12px;
   font-weight: 600;
-  color: #dc2626;
+  color: var(--color-alert-red);
 }
 
 .date-range-modal__footer {

@@ -1,8 +1,11 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { initializeColorVariables } from './constants/colors';
 import './constants/root.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
+
+initializeColorVariables();
 
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement

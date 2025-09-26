@@ -8,8 +8,8 @@
   font-weight: 400;
   font-style: normal;
   border: none;
-  background-color: #ececf1;
-  color: #101010;
+  background-color: var(--color-neutral-100);
+  color: var(--color-charcoal-dark);
   border-radius: 1000px;
   padding: 8px 24px;
   min-height: 42px;
@@ -17,27 +17,27 @@
   outline: none;
 
   &.button-style-action {
-    background-color: #101010;
-    color: #ececf1;
+    background-color: var(--color-charcoal-dark);
+    color: var(--color-neutral-100);
     &:hover:not([disabled]) {
-      background-color: #404040;
+      background-color: var(--color-charcoal-muted);
     }
   }
 
   &.button-style-alert {
-    background-color: #f00;
-    color: #ececf1;
+    background-color: var(--color-red);
+    color: var(--color-neutral-100);
     &:hover:not([disabled]) {
-      background-color: #f00;
+      background-color: var(--color-red);
     }
   }
 
   &.button-style-flush {
-    background-color: rgba(255, 255, 255, 0);
+    background-color: rgba(var(--color-white-rgb), 0);
   }
 
   &[disabled] {
-    color: #999;
+    color: var(--color-neutral-400);
   }
 
   &:not([disabled]) {
@@ -45,7 +45,7 @@
   }
 
   &:hover:not([disabled]) {
-    background-color: #d8d8d8;
+    background-color: var(--color-neutral-200);
   }
 
   &:active:not([disabled]) {
@@ -67,13 +67,13 @@
   }
 
   &.icon-red .icon {
-    color: #cc0000;
+    color: var(--color-red-dark);
   }
   &.icon-green .icon {
-    color: #009900;
+    color: var(--color-success-green);
   }
   &.icon-grey .icon {
-    color: #909090;
+    color: var(--color-neutral-450);
   }
   &.icon-fill {
     svg {

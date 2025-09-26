@@ -5,9 +5,9 @@
   width: 360px;
   max-width: calc(100% - 32px);
   max-height: 60vh;
-  background: linear-gradient(135deg, #cdbea1, #cdbea1, #cdbea199);
+  background: linear-gradient(135deg, var(--color-sand), var(--color-sand), rgba(var(--color-sand-rgb), 0.6));
   border-radius: 16px;
-  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.18);
+  box-shadow: 0 16px 32px rgba(var(--color-slate-900-rgb), 0.18);
   padding: 16px;
   display: flex;
   flex-direction: column;
@@ -19,18 +19,18 @@
 @keyframes realtime-voice-modal__start-pulse {
   0%,
   100% {
-    background-color: #0ea5e9;
-    box-shadow: 0 0 16px rgba(14, 165, 233, 0.55);
+    background-color: var(--color-sky-blue);
+    box-shadow: 0 0 16px rgba(var(--color-sky-blue-rgb), 0.55);
   }
   50% {
-    background-color: #22c55e;
-    box-shadow: 0 0 20px rgba(34, 197, 94, 0.55);
+    background-color: var(--color-emerald);
+    box-shadow: 0 0 20px rgba(var(--color-emerald-rgb), 0.55);
   }
 }
 
 .realtime-voice-modal__start-button {
-  background-color: #0ea5e9;
-  color: #ffffff;
+  background-color: var(--color-sky-blue);
+  color: var(--color-white);
   font-weight: 900;
   font-size: 20px;
 }
@@ -41,15 +41,15 @@
 
 .realtime-voice-modal__start-button:not([disabled]):hover {
   animation-play-state: paused;
-  background-color: #22c55e;
-  box-shadow: 0 0 20px rgba(34, 197, 94, 0.65);
+  background-color: var(--color-emerald);
+  box-shadow: 0 0 20px rgba(var(--color-emerald-rgb), 0.65);
 }
 
 .realtime-voice-modal__start-button[disabled] {
   animation: none;
-  background-color: #9ca3af;
+  background-color: var(--color-slate-300);
   box-shadow: none;
-  color: #f5f5f5;
+  color: var(--color-snow);
 }
 
 .realtime-voice-modal__start-wrapper {
@@ -83,10 +83,10 @@
   display: block;
   font-size: 60px;
   line-height: 1;
-  color: #ffffff;
-  text-shadow: 0 0 12px rgba(255, 255, 255, 0.75),
-    0 0 24px rgba(255, 255, 255, 0.55);
-  filter: drop-shadow(0 8px 16px rgba(14, 165, 233, 0.45));
+  color: var(--color-white);
+  text-shadow: 0 0 12px rgba(var(--color-white-rgb), 0.75),
+    0 0 24px rgba(var(--color-white-rgb), 0.55);
+  filter: drop-shadow(0 8px 16px rgba(var(--color-sky-blue-rgb), 0.45));
   animation: realtime-voice-modal__arrow-bob 1.4s ease-in-out infinite;
 }
 
@@ -124,9 +124,9 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  background: #fff3f0;
-  border: 1px solid #ffb8a8;
-  color: #8c2f1c;
+  background: var(--color-sand-blush);
+  border: 1px solid var(--color-coral);
+  color: var(--color-chestnut);
   padding: 8px 12px;
   border-radius: 8px;
   font-size: 12px;
@@ -141,7 +141,7 @@
 
 .realtime-voice-modal__conversation,
 .realtime-voice-modal__events {
-  background: #f8fafc;
+  background: var(--color-alabaster);
   border-radius: 12px;
   padding: 12px;
   max-height: 180px;
@@ -166,21 +166,21 @@
 }
 
 .realtime-voice-modal__speaker--user {
-  color: #0099ff;
+  color: var(--color-electric-blue);
 }
 
 .realtime-voice-modal__speaker--assistant {
-  color: #009900;
+  color: var(--color-success-green);
 }
 
 .realtime-voice-modal__message-content {
   flex: 1;
   min-width: 0;
-  color: #18181b;
+  color: var(--color-charcoal);
 }
 
 .realtime-voice-modal__tool-detail {
-  background: rgba(0, 0, 0, 0.05);
+  background: rgba(var(--color-black-rgb), 0.05);
   border-radius: 8px;
   padding: 8px;
   margin-top: 6px;
@@ -203,8 +203,8 @@
   top: 0;
   right: -18px;
   border: none;
-  background: #aaa;
-  color: #fff;
+  background: var(--color-neutral-350);
+  color: var(--color-white);
   border-radius: 16px;
   width: 20px;
   height: 20px;
@@ -216,7 +216,7 @@
 }
 
 .realtime-voice-modal__close:hover {
-  background: #696969;
+  background: var(--color-neutral-500);
 }
 
 .realtime-voice-modal__close svg {
@@ -234,7 +234,7 @@
 }
 
 .realtime-voice-modal__event + .realtime-voice-modal__event {
-  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  border-top: 1px solid rgba(var(--color-black-rgb), 0.05);
 }
 
 .realtime-voice-modal__event-timestamp {
@@ -255,19 +255,19 @@
 }
 
 .realtime-voice-modal__event-source--client {
-  color: #0099ff;
+  color: var(--color-electric-blue);
 }
 
 .realtime-voice-modal__event-source--server {
-  color: #009900;
+  color: var(--color-success-green);
 }
 
 .realtime-voice-modal__event-source--error {
-  color: #990000;
+  color: var(--color-red-deep);
 }
 
 .realtime-voice-modal__event-payload {
-  background: rgba(0, 0, 0, 0.05);
+  background: rgba(var(--color-black-rgb), 0.05);
   padding: 6px;
   border-radius: 8px;
   margin-top: 6px;
@@ -287,9 +287,9 @@
   align-items: center;
   gap: 4px;
   font-size: 11px;
-  color: #1f2937;
+  color: var(--color-slate-800);
   flex: 1;
-  background: rgba(15, 23, 42, 0.06);
+  background: rgba(var(--color-slate-900-rgb), 0.06);
   border-radius: 8px;
   padding: 6px;
 }
@@ -300,11 +300,11 @@
 }
 
 .realtime-voice-modal__visualization-entry--client {
-  color: #0099ff;
+  color: var(--color-electric-blue);
 }
 
 .realtime-voice-modal__visualization-entry--server {
-  color: #009900;
+  color: var(--color-success-green);
 }
 
 @media (max-width: 480px) {

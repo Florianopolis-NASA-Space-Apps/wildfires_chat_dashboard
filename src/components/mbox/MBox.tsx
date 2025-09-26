@@ -4,6 +4,7 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import type { FeatureCollection } from 'geojson';
 import { apiWildfires } from '../../utils/apiWildfires';
 import { readCountriesGeoJson } from '../../utils/wildfireDb';
+import { COLORS } from '../../constants/colors';
 
 const MAPBOX_KEY = process.env.REACT_APP_MAPBOX_KEY || '';
 
@@ -29,6 +30,7 @@ export const MBox = ({
   focusCoords,
   marker,
   numberOfDays,
+  startDate,
 }: {
   isLargeScreen: boolean;
   dataMode: 'live' | 'historical';
@@ -36,11 +38,12 @@ export const MBox = ({
   focusCoords: IMapCoords | null;
   marker: MapMarkerDetails | null;
   numberOfDays: string;
+  startDate: string;
 }) => {
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const [liveData, setLiveData] = useState<FeatureCollection | null>(null);
-  const lastNumberOfDaysRef = useRef<string | null>(null);
+  const lastFetchKeyRef = useRef<string | null>(null);
   const markerRef = useRef<mapboxgl.Marker | null>(null);
   const popupRef = useRef<mapboxgl.Popup | null>(null);
   const [isMapReady, setIsMapReady] = useState(false);
@@ -53,10 +56,11 @@ export const MBox = ({
       if (!americasSource) return;
 
       if (mode === 'live') {
+        const fetchKey = `${startDate}|${numberOfDays}`;
         if (
           liveData &&
           liveData.type === 'FeatureCollection' &&
-          lastNumberOfDaysRef.current === numberOfDays
+          lastFetchKeyRef.current === fetchKey
         ) {
           americasSource.setData(liveData);
           return;
@@ -74,6 +78,7 @@ export const MBox = ({
 
           await apiWildfires({
             numberOfDays,
+            startDate,
           });
 
           const refreshed = await readCountriesGeoJson(regionCodes);
@@ -87,7 +92,7 @@ export const MBox = ({
           } else {
             setLiveData(null);
           }
-          lastNumberOfDaysRef.current = numberOfDays;
+          lastFetchKeyRef.current = fetchKey;
         } finally {
           setIsLoading(false);
         }
@@ -95,7 +100,7 @@ export const MBox = ({
         americasSource.setData('/americas.geojson');
       }
     },
-    [liveData, numberOfDays, setIsLoading]
+    [liveData, numberOfDays, setIsLoading, startDate]
   );
 
   const addClusterLayers = useCallback(
@@ -109,11 +114,11 @@ export const MBox = ({
           'circle-color': [
             'step',
             ['get', 'point_count'],
-            '#e85607',
+            COLORS.orange,
             100,
-            '#e22822',
+            COLORS.crimson,
             750,
-            '#fede17',
+            COLORS.amber,
           ],
           'circle-radius': [
             'step',
@@ -143,7 +148,7 @@ export const MBox = ({
         source: sourceId,
         filter: ['!', ['has', 'point_count']],
         paint: {
-          'circle-color': '#e85607',
+          'circle-color': COLORS.orange,
           'circle-radius': 12,
         },
       });
@@ -210,7 +215,7 @@ export const MBox = ({
 
     const map = mapRef.current;
     if (!markerRef.current) {
-      markerRef.current = new mapboxgl.Marker({ color: '#e22822' });
+      markerRef.current = new mapboxgl.Marker({ color: COLORS.crimson });
     }
     markerRef.current.setLngLat([lng, lat]).addTo(map);
 
@@ -289,11 +294,12 @@ export const MBox = ({
   }, [isLargeScreen, isMapReady, focusCoords]);
 
   return (
-    <div className="bg-red-400 h-full">
+    <div className="h-full" style={{ backgroundColor: COLORS.sand }}>
       <div
         id="map-container"
         ref={mapContainerRef}
-        className="h-full w-full bg-gray-300"
+        className="h-full w-full"
+        style={{ backgroundColor: COLORS.sand }}
       />
     </div>
   );

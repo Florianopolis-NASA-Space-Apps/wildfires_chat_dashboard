@@ -12,7 +12,13 @@ import {
 } from '../../utils/wildfireDb';
 import type { BoundingBox } from '../../types/geospatial';
 import { lookupBoundingBoxForPlace } from '../../utils/geocoding';
+import {
+  formatDateForResponse,
+  parseDateArg,
+  type DateRange,
+} from '../../utils/dates';
 import type { IMapCoords, MapMarkerDetails } from '../mbox/MBox';
+import { COLORS } from '../../constants/colors';
 import './RealtimeVoiceModal.scss';
 
 type VoiceSessionStatus =
@@ -35,6 +41,7 @@ interface RealtimeVoiceModalProps {
   onObservationValueChange: (value: BoundingBoxObservationStats | null) => void;
   onResetContext: () => void;
   isLargeScreen: boolean;
+  onDateRangeChange: (range: DateRange) => void;
 }
 
 function toFiniteNumber(value: unknown): number | null {
@@ -103,6 +110,7 @@ export function RealtimeVoiceModal({
   onObservationValueChange,
   onResetContext,
   isLargeScreen,
+  onDateRangeChange,
 }: RealtimeVoiceModalProps) {
   const [voiceStatus, setVoiceStatus] = useState<VoiceSessionStatus>('idle');
   const [voiceError, setVoiceError] = useState<string | null>(null);
@@ -200,7 +208,11 @@ export function RealtimeVoiceModal({
         const inputCanvas = inputCanvasRef.current;
         if (inputCanvas && recorderRef.current) {
           const frequencies = recorderRef.current.getFrequencies('voice');
-          renderWaveform(inputCanvas, frequencies.values, '#0099ff');
+          renderWaveform(
+            inputCanvas,
+            frequencies.values,
+            COLORS.electricBlue
+          );
         }
       } catch (err) {
         if (!recorderRef.current) {
@@ -212,7 +224,11 @@ export function RealtimeVoiceModal({
         const outputCanvas = outputCanvasRef.current;
         if (outputCanvas && playerRef.current) {
           const frequencies = playerRef.current.getFrequencies('voice');
-          renderWaveform(outputCanvas, frequencies.values, '#009900');
+          renderWaveform(
+            outputCanvas,
+            frequencies.values,
+            COLORS.successGreen
+          );
         }
       } catch (err) {
         if (!playerRef.current) {
@@ -374,6 +390,57 @@ export function RealtimeVoiceModal({
             value: stats.count,
             bounding_box: bounds,
             label,
+          };
+        }
+      );
+
+      client.addTool(
+        {
+          name: 'set_observation_date_range',
+          description:
+            'Updates the wildfire observation date range shown in the dashboard. Use this when the user specifies a start and end date.',
+          parameters: {
+            type: 'object',
+            required: ['start_date', 'end_date'],
+            properties: {
+              start_date: {
+                type: 'string',
+                description:
+                  'Inclusive start date in YYYY-MM-DD format (e.g., 2025-01-06).',
+              },
+              end_date: {
+                type: 'string',
+                description:
+                  'Inclusive end date in YYYY-MM-DD format (e.g., 2025-01-10).',
+              },
+            },
+            additionalProperties: false,
+          },
+        },
+        async (args: Record<string, any>) => {
+          const startDate = parseDateArg(args?.start_date, 'start_date');
+          const endDate = parseDateArg(args?.end_date, 'end_date');
+
+          if (endDate < startDate) {
+            throw new Error('end_date must be on or after start_date.');
+          }
+
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          if (endDate > today) {
+            throw new Error('end_date cannot be in the future.');
+          }
+
+          onDateRangeChange({ startDate, endDate });
+
+          return {
+            start_date: formatDateForResponse(startDate),
+            end_date: formatDateForResponse(endDate),
+            total_days:
+              Math.floor(
+                (endDate.getTime() - startDate.getTime()) /
+                  (1000 * 60 * 60 * 24)
+              ) + 1,
           };
         }
       );
@@ -580,6 +647,7 @@ export function RealtimeVoiceModal({
       onMapPositionChange,
       onObservationQueryChange,
       onObservationValueChange,
+      onDateRangeChange,
     ]
   );
 
@@ -869,7 +937,7 @@ export function RealtimeVoiceModal({
 
       {!!conversationItems.length &&
         isLargeScreen &&
-        conversationItems.map((item: any) => {
+        conversationItems.map((item: any, index: number) => {
           const roleLabel = (item.role || item.type || 'item') as string;
           const normalizedRole = roleLabel.toLowerCase();
           const transcriptRaw = item?.formatted?.transcript || '';
@@ -899,7 +967,7 @@ export function RealtimeVoiceModal({
             // }
           }
           return (
-            <div className="realtime-voice-modal__body">
+            <div className="realtime-voice-modal__body" key={index}>
               <div className="realtime-voice-modal__conversation">
                 <div key={item.id} className="realtime-voice-modal__message">
                   <div

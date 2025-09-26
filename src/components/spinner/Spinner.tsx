@@ -1,4 +1,5 @@
 import React, { useRef, useEffect } from 'react';
+import { COLORS } from '../../constants/colors';
 
 interface SpinnerProps {
   /** Diameter of the spinner in pixels */
@@ -13,7 +14,7 @@ interface SpinnerProps {
 
 export const Spinner: React.FC<SpinnerProps> = ({
   size = 40,
-  color = '#999',
+  color = COLORS.neutral400,
   speed = 1000,
   style,
 }) => {

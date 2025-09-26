@@ -4,16 +4,19 @@
  */
 
 import { useEffect, useCallback, useMemo, useState } from 'react';
-import { X, ExternalLink, Calendar } from 'react-feather';
+import { X, ExternalLink } from 'react-feather';
 import { Button } from '../components/button/Button';
 import './ConsolePage.scss';
 import { MBox, IMapCoords, MapMarkerDetails } from '../components/mbox/MBox';
 import { Spinner } from '../components/spinner/Spinner';
 import { RealtimeVoiceModal } from '../components/realtime-voice/RealtimeVoiceModal';
+import { DateRangeModal } from '../components/date-range/DateRangeModal';
 import {
-  DateRangeModal,
+  formatDateForRequest,
+  getDefaultDateRange,
+  getInclusiveDaySpan,
   type DateRange,
-} from '../components/date-range/DateRangeModal';
+} from '../utils/dates';
 import type { BoundingBoxObservationStats } from '../utils/wildfireDb';
 import { COLORS } from '../constants/colors';
 
@@ -42,7 +45,9 @@ export function ConsolePage() {
   const [dataMode, setDataMode] = useState<'live' | 'historical'>('live');
   const [isLoading, setIsLoading] = useState(true);
   const [hasInitialLoadStarted, setHasInitialLoadStarted] = useState(false);
-  const [showInitialLoadingModal, setShowInitialLoadingModal] = useState(true);
+  const [loadingModalState, setLoadingModalState] = useState<
+    'loading' | 'success' | 'hidden'
+  >('loading');
   const [markerInfo, setMarkerInfo] = useState<MapMarkerDetails | null>(null);
   const [mapPosition, setMapPosition] = useState<IMapCoords | null>(null);
   const [lastObservationQuery, setLastObservationQuery] = useState<
@@ -114,6 +119,11 @@ export function ConsolePage() {
     [selectedDateRange]
   );
 
+  const selectedStartDate = useMemo(
+    () => formatDateForRequest(selectedDateRange.startDate),
+    [selectedDateRange.startDate]
+  );
+
   /**
    * State to track window width
    */
@@ -129,15 +139,36 @@ export function ConsolePage() {
   }, []);
 
   useEffect(() => {
-    if (isLoading && !hasInitialLoadStarted) {
-      setHasInitialLoadStarted(true);
+    if (isLoading) {
+      if (!hasInitialLoadStarted) {
+        setHasInitialLoadStarted(true);
+      }
+      if (loadingModalState !== 'loading') {
+        setLoadingModalState('loading');
+      }
       return;
     }
 
-    if (!isLoading && hasInitialLoadStarted && showInitialLoadingModal) {
-      setShowInitialLoadingModal(false);
+    if (
+      !isLoading &&
+      hasInitialLoadStarted &&
+      loadingModalState === 'loading'
+    ) {
+      setLoadingModalState('success');
     }
-  }, [hasInitialLoadStarted, isLoading, showInitialLoadingModal]);
+  }, [hasInitialLoadStarted, isLoading, loadingModalState]);
+
+  useEffect(() => {
+    if (loadingModalState !== 'success') {
+      return;
+    }
+
+    const hideDelay = window.setTimeout(() => {
+      setLoadingModalState('hidden');
+    }, 1400);
+
+    return () => window.clearTimeout(hideDelay);
+  }, [loadingModalState]);
 
   const openSlideDeck = useCallback(() => {
     if (isLargeScreen) {
@@ -147,108 +178,6 @@ export function ConsolePage() {
       window.open(SLIDE_DECK_LINK, '_blank');
     }
   }, [isLargeScreen]);
-
-  const DatasetControlsSmall = (
-    <div
-      className={`content-actions`}
-      style={{ alignItems: 'center', alignSelf: 'center' }}
-    >
-      <div
-        style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}
-      >
-        <button
-          className={`px-4 py-2 mr-2 rounded ${
-            dataMode === 'historical'
-              ? 'bg-red-500 text-white'
-              : 'bg-gray-500 text-black'
-          }`}
-          style={{ opacity: dataMode === 'historical' ? 1 : 0.6 }}
-          onClick={() => setDataMode('historical')}
-        >
-          {`HISTORICAL`}
-        </button>
-        <p
-          style={{ fontWeight: dataMode === 'historical' ? 'bold' : 'normal' }}
-        >
-          January 6th - 10th 2025
-        </p>
-      </div>
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'row',
-          alignItems: 'center',
-          marginTop: 10,
-        }}
-      >
-        <button
-          className={`px-4 py-2 mr-2 rounded ${
-            dataMode === 'live'
-              ? 'bg-red-500 text-white'
-              : 'bg-gray-500 text-black'
-          }`}
-          style={{ opacity: dataMode === 'live' ? 1 : 0.6 }}
-          onClick={() => setDataMode('live')}
-        >
-          {`LIVE`}
-        </button>
-        <div
-          style={{
-            minWidth: 180,
-            fontWeight: dataMode === 'live' ? 'bold' : 'normal',
-          }}
-        >
-          {isLoading ? (
-            <Spinner size={30} />
-          ) : (
-            `${formatDateRange(selectedDateRange)}`
-          )}
-        </div>
-      </div>
-    </div>
-  );
-
-  const DatasetControlsLarge = (
-    <div className="dataset-controls">
-      <div className="content-actions">
-        <p
-          style={{ fontWeight: dataMode === 'historical' ? 'bold' : 'normal' }}
-        >
-          January 6th - 10th 2025
-        </p>
-        <button
-          className={`px-4 py-2 mr-2 rounded ${
-            dataMode === 'historical'
-              ? 'bg-red-500 text-white'
-              : 'bg-gray-500 text-black'
-          }`}
-          style={{ opacity: dataMode === 'historical' ? 1 : 0.6 }}
-          onClick={() => setDataMode('historical')}
-        >
-          {`HISTORICAL`}
-        </button>
-        <button
-          className={`px-4 py-2 mr-2 rounded ${
-            dataMode === 'live'
-              ? 'bg-red-500 text-white'
-              : 'bg-gray-500 text-black'
-          }`}
-          style={{ opacity: dataMode === 'live' ? 1 : 0.6 }}
-          onClick={() => setDataMode('live')}
-        >
-          {`LIVE`}
-        </button>
-        <div
-          style={{
-            minWidth: 180,
-            fontWeight: dataMode === 'live' ? 'bold' : 'normal',
-          }}
-        >
-          {isLoading ? <Spinner /> : `${formatDateRange(selectedDateRange)}`}
-        </div>
-      </div>
-    </div>
-  );
 
   /**
    * Render the application
@@ -302,16 +231,31 @@ export function ConsolePage() {
               focusCoords={mapPosition}
               marker={markerInfo}
               numberOfDays={selectedNumberOfDays}
+              startDate={selectedStartDate}
             />
-            {showInitialLoadingModal && (
+            {loadingModalState !== 'hidden' && (
               <div
-                className="map-loading-modal"
+                className={`map-loading-modal map-loading-modal--${loadingModalState}`}
                 role="status"
                 aria-live="polite"
               >
-                <Spinner size={36} color="#000080" />
+                {loadingModalState === 'loading' ? (
+                  <Spinner size={36} color={COLORS.navy} />
+                ) : (
+                  <div className="map-loading-checkmark" aria-hidden="true">
+                    <svg
+                      className="map-loading-checkmark-icon"
+                      viewBox="0 0 24 24"
+                      focusable="false"
+                    >
+                      <path d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                )}
                 <div className="map-loading-text">
-                  {'Retrieving wildfire observations...'}
+                  {loadingModalState === 'loading'
+                    ? 'Retrieving wildfire observations...'
+                    : 'Wildfire observations ready!'}
                 </div>
               </div>
             )}
@@ -348,7 +292,7 @@ export function ConsolePage() {
               </div>
             )}
             {isLargeScreen && (
-              <>
+              <div className="map-information-overlay">
                 {(markerInfo || observationValue !== null) && (
                   <div className="map-overlay-panel">
                     {markerInfo && (
@@ -435,7 +379,7 @@ export function ConsolePage() {
                     )}
                   </div>
                 )}
-              </>
+              </div>
             )}
             <RealtimeVoiceModal
               onMarkerUpdate={updateMarkerInfo}
@@ -444,6 +388,7 @@ export function ConsolePage() {
               onObservationValueChange={setObservationValue}
               onResetContext={resetRealtimeContext}
               isLargeScreen={isLargeScreen}
+              onDateRangeChange={applyDateRange}
             />
             {isLargeScreen && (
               <DateRangeModal
@@ -457,7 +402,6 @@ export function ConsolePage() {
             )}
           </div>
         </div>
-        {/* {isLargeScreen ? DatasetControlsLarge : DatasetControlsSmall} */}
         {!isLargeScreen && (
           <Button
             icon={ExternalLink}
@@ -465,7 +409,7 @@ export function ConsolePage() {
             style={{
               fontSize: 18,
               textAlign: 'center',
-              backgroundColor: COLORS.tan,
+              backgroundColor: COLORS.sand,
               alignSelf: 'flex-end',
               marginTop: -10,
               marginBottom: -10,
@@ -476,7 +420,7 @@ export function ConsolePage() {
         )}
       </div>
       {isLightboxOpen && (
-        <div className="lightbox">
+        <div className="slide-deck-lightbox">
           <div className="lightbox-content">
             <button className="close-button" onClick={closeLightbox}>
               <X />
@@ -496,77 +440,3 @@ export function ConsolePage() {
 }
 
 const imageSize = 130;
-
-/**
- * Returns a string with the correct ordinal suffix.
- * e.g., 1 -> "1st", 2 -> "2nd", 3 -> "3rd", 4 -> "4th", ...
- */
-function addOrdinalSuffix(day: number) {
-  const remainder10 = day % 10;
-  const remainder100 = day % 100;
-
-  if (remainder100 >= 11 && remainder100 <= 13) {
-    return day + 'th';
-  }
-
-  switch (remainder10) {
-    case 1:
-      return day + 'st';
-    case 2:
-      return day + 'nd';
-    case 3:
-      return day + 'rd';
-    default:
-      return day + 'th';
-  }
-}
-
-export function getDefaultDateRange(): DateRange {
-  const endDate = new Date();
-  endDate.setHours(0, 0, 0, 0);
-  const startDate = new Date(endDate);
-  startDate.setDate(endDate.getDate() - 3);
-  return { startDate, endDate };
-}
-
-export function formatDateRange({ startDate, endDate }: DateRange): string {
-  const monthOptions: Intl.DateTimeFormatOptions = {
-    month: 'long',
-  };
-
-  const startDay = startDate.getDate();
-  const startMonth = startDate.toLocaleString('en-US', monthOptions);
-  const startYear = startDate.getFullYear();
-
-  const endDay = endDate.getDate();
-  const endMonth = endDate.toLocaleString('en-US', monthOptions);
-  const endYear = endDate.getFullYear();
-
-  const startDayOrdinal = addOrdinalSuffix(startDay);
-  const endDayOrdinal = addOrdinalSuffix(endDay);
-
-  if (startMonth === endMonth && startYear === endYear) {
-    return `${startMonth} ${startDayOrdinal} - ${endDayOrdinal} ${startYear}`;
-  }
-
-  return (
-    `${startMonth} ${startDayOrdinal} ${startYear} - ` +
-    `${endMonth} ${endDayOrdinal} ${endYear}`
-  );
-}
-
-const MS_PER_DAY = 1000 * 60 * 60 * 24;
-
-export function getInclusiveDaySpan({ startDate, endDate }: DateRange): number {
-  const start = new Date(startDate);
-  start.setHours(0, 0, 0, 0);
-  const end = new Date(endDate);
-  end.setHours(0, 0, 0, 0);
-
-  if (end < start) {
-    return 1;
-  }
-
-  const diff = end.getTime() - start.getTime();
-  return Math.floor(diff / MS_PER_DAY) + 1;
-}
