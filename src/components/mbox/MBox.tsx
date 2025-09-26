@@ -20,7 +20,11 @@ export interface MapMarkerDetails extends IMapCoords {
   daysSinceRain?: number | null;
 }
 
-const P2COORDS: IMapCoords = { lat: -10, lng: -78.3355236 };
+// const P2COORDS: IMapCoords = { lat: -10, lng: -78.3355236 };
+const P2COORDS: IMapCoords = {
+  lat: 14,
+  lng: -30,
+};
 const REGION_CODE = 'AMERICAS' as const;
 
 export const MBox = ({
@@ -265,7 +269,7 @@ export const MBox = ({
     if (!mapRef.current || !isMapReady || focusCoords) return;
     mapRef.current.flyTo({
       center: [P2COORDS.lng, P2COORDS.lat],
-      zoom: isLargeScreen ? 2.5 : 1.5,
+      zoom: 1.2,
       essential: false,
     });
   }, [isLargeScreen, isMapReady, focusCoords]);

@@ -14,7 +14,7 @@ interface DateRangeModalProps {
   maxDate?: Date;
 }
 
-const MAX_RANGE_DAYS = 10;
+const MAX_RANGE_DAYS = 4;
 const DAYS_OF_WEEK = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 type SelectedRangeState = {

@@ -902,7 +902,7 @@ export function RealtimeVoiceModal({
                   aria-hidden="true"
                 >
                   <span className="realtime-voice-modal__start-arrow-icon">
-                    ↓
+                    →
                   </span>
                 </div>
               )}
