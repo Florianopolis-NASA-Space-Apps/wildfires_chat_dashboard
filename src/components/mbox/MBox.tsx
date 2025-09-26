@@ -28,14 +28,16 @@ const P2COORDS: IMapCoords = {
 const REGION_CODE = 'AMERICAS' as const;
 
 export const MBox = ({
-  setIsLoading,
   isLargeScreen,
+  isExtraLargeScreen,
+  setIsLoading,
   focusCoords,
   marker,
   numberOfDays,
   startDate,
 }: {
   isLargeScreen: boolean;
+  isExtraLargeScreen: boolean;
   setIsLoading: (loading: boolean) => void;
   focusCoords: IMapCoords | null;
   marker: MapMarkerDetails | null;
@@ -269,10 +271,10 @@ export const MBox = ({
     if (!mapRef.current || !isMapReady || focusCoords) return;
     mapRef.current.flyTo({
       center: [P2COORDS.lng, P2COORDS.lat],
-      zoom: 1.2,
+      zoom: isExtraLargeScreen ? 1.6 : 1.2,
       essential: false,
     });
-  }, [isLargeScreen, isMapReady, focusCoords]);
+  }, [isMapReady, focusCoords, isExtraLargeScreen]);
 
   return (
     <div className="h-full" style={{ backgroundColor: COLORS.sand }}>

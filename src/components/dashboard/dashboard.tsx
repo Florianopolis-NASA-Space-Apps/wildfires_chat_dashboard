@@ -39,6 +39,7 @@ export function Dashboard() {
     getDefaultDateRange({ daysBack: 2 })
   );
   const isLargeScreen = windowWidth >= 950;
+  const isExtraLargeScreen = windowWidth >= 1400;
 
   const resetRealtimeContext = useCallback(() => {
     setMarkerInfo(null);
@@ -159,6 +160,7 @@ export function Dashboard() {
           <div className="content-block map" style={{ height: '100%' }}>
             <MBox
               isLargeScreen={isLargeScreen}
+              isExtraLargeScreen={isExtraLargeScreen}
               setIsLoading={setIsLoading}
               focusCoords={mapPosition}
               marker={markerInfo}

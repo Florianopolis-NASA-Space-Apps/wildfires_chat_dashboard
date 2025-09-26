@@ -5,6 +5,9 @@ import type { BoundingBox } from '../types/geospatial';
 const SQLITE_WASM_PATH = '/sql-wasm.wasm';
 const DB_STORAGE_KEY = 'wildfire_sqlite_db_v2';
 
+let persistenceDisabled = false;
+let quotaWarningLogged = false;
+
 let sqlJsInstance: Promise<SqlJsStatic> | null = null;
 let dbInstance: Promise<Database> | null = null;
 
@@ -118,11 +121,56 @@ async function getDatabase(): Promise<Database> {
   return dbInstance;
 }
 
+function isQuotaExceededError(error: unknown): boolean {
+  if (!error) return false;
+  if (typeof error === 'object') {
+    const maybeDomException = error as Partial<DOMException> & {
+      code?: number;
+      name?: string;
+    };
+    const quotaErrorCodes = new Set([22, 1014]);
+    if (maybeDomException.code && quotaErrorCodes.has(maybeDomException.code)) {
+      return true;
+    }
+    if (maybeDomException.name) {
+      return (
+        maybeDomException.name === 'QuotaExceededError' ||
+        maybeDomException.name === 'NS_ERROR_DOM_QUOTA_REACHED'
+      );
+    }
+  }
+  return false;
+}
+
 function persistDatabase(db: Database) {
+  if (persistenceDisabled) return;
   const storage = getStorage();
   if (!storage) return;
   const exported = db.export();
-  storage.setItem(DB_STORAGE_KEY, uint8ArrayToBase64(exported));
+  try {
+    storage.setItem(DB_STORAGE_KEY, uint8ArrayToBase64(exported));
+  } catch (error) {
+    if (isQuotaExceededError(error)) {
+      persistenceDisabled = true;
+      if (!quotaWarningLogged) {
+        console.warn(
+          'Local storage quota exceeded for wildfire observations. Persistence disabled for this session.',
+          error
+        );
+        quotaWarningLogged = true;
+      }
+      try {
+        storage.removeItem(DB_STORAGE_KEY);
+      } catch (cleanupError) {
+        console.debug(
+          'Failed to remove stored wildfire observations after quota error.',
+          cleanupError
+        );
+      }
+      return;
+    }
+    throw error;
+  }
 }
 export interface ObservationRecord {
   latitude: number;
