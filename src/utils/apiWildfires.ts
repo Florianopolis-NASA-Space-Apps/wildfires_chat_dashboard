@@ -1,11 +1,64 @@
 import Papa from 'papaparse';
 import { readCountriesGeoJson, replaceCountryObservations } from './wildfireDb';
 
+const AMERICAS_CODE = 'AMERICAS';
 const FALLBACK_GEOJSON_PATHS: Record<string, string> = {
-  BRA: '/brazil.geojson',
-  ARG: '/argentina.geojson',
-  USA: '/USA.geojson',
+  [AMERICAS_CODE]: '/americas.geojson',
 };
+
+const AMERICAS_BBOX: [number, number, number, number] = [-170, -60, -30, 83];
+const NASA_DATA_SOURCE = 'MODIS_NRT';
+
+async function fetchAmericasWildfireRows({
+  numberOfDays,
+}: {
+  numberOfDays: string;
+}) {
+  if (typeof fetch === 'undefined') {
+    throw new Error('Fetch API is not available in this environment');
+  }
+
+  const [west, south, east, north] = AMERICAS_BBOX;
+  const url = `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${NASA_MAP_KEY}/${NASA_DATA_SOURCE}/${west},${south},${east},${north}/${numberOfDays}`;
+
+  const response = await fetch(url);
+  console.log('response', response);
+  const text = await response.text();
+  console.log('text', text);
+  if (!response.ok) {
+    throw new Error(`Status ${response.status}: ${text.slice(0, 200)}`);
+  }
+
+  if (!text || text.trim().length === 0) {
+    throw new Error('Empty response body');
+  }
+
+  if (text.trim().startsWith('<')) {
+    throw new Error('Received HTML instead of CSV');
+  }
+
+  const parsed = Papa.parse<Record<string, any>>(text, {
+    header: true,
+    // @ts-expect-error - Papa types do not include boolean for dynamicTyping
+    dynamicTyping: true,
+    skipEmptyLines: true,
+  });
+
+  console.log('parsed', parsed);
+
+  const rows = parsed.data.filter(
+    (row: any) =>
+      row && row.longitude !== undefined && row.latitude !== undefined
+  );
+
+  console.log('rows', rows);
+
+  if (!rows.length) {
+    throw new Error('No valid rows in CSV');
+  }
+
+  return rows;
+}
 
 function featureToObservation(row: any) {
   if (!row) return null;
@@ -77,72 +130,66 @@ async function loadFallbackData(countryCode: string) {
   return null;
 }
 
-const NASA_MAP_KEY = 'd83533a15b94181f62f362b63581c990';
+const NASA_MAP_KEY = process.env.REACT_APP_NASA_MAP_KEY || '';
 
 export async function apiWildfires({
-  countries = 'USA,ARG,BRA',
   numberOfDays = '4',
-}) {
+}: {
+  numberOfDays?: string;
+} = {}) {
   try {
-    const countryList = countries
-      .split(',')
-      .map((code: string) => code.trim().toUpperCase())
-      .filter(Boolean);
-
-    const cachedBeforeFetch = await readCountriesGeoJson(countryList);
-    const fetchOutcomes: Record<string, { error?: string }> = {};
-    // Function to fetch CSV data for a single country and convert it to GeoJSON
-    async function fetchCountryData(countryCode: string) {
-      const countryUrl = `https://firms.modaps.eosdis.nasa.gov/api/country/csv/${NASA_MAP_KEY}/MODIS_NRT/${countryCode}/${numberOfDays}`;
+    const regionCodes = [AMERICAS_CODE];
+    const cachedBeforeFetch = await readCountriesGeoJson(regionCodes);
+    let storedSuccessfully = false;
+    let lastError: string | null = null;
+    let americasRows: Record<string, any>[] | null = null;
+    try {
+      americasRows = await fetchAmericasWildfireRows({ numberOfDays });
+    } catch (error) {
+      console.error(
+        'Error fetching aggregated wildfire data for the Americas',
+        error
+      );
+      lastError = 'Failed to fetch data for the Americas';
+    }
+    console.log('americasRows', americasRows);
+    if (americasRows && americasRows.length) {
       try {
-        const response = await fetch(countryUrl);
-        console.log('response', response);
-        if (!response.ok) {
-          throw new Error(`Request failed with status ${response.status}`);
-        }
-        // Read CSV text
-        const csvData = await response.text();
-        // Parse CSV to JSON rows
-        console.log('csvData', csvData);
-        const parsed = Papa.parse(csvData, { header: true });
-        const rows = parsed.data.filter(
-          (row: any) => row.longitude && row.latitude
+        console.log('rowsForAmericas', americasRows);
+        await replaceCountryObservations(AMERICAS_CODE, americasRows as any[]);
+        storedSuccessfully = true;
+      } catch (storageError) {
+        console.error(
+          'Error storing wildfire data for the Americas',
+          storageError
         );
-        await replaceCountryObservations(countryCode, rows as any[]);
-        return true;
-      } catch (error) {
-        console.error('Error fetching data for', countryCode, error);
-        const fallbackSuccess = await loadFallbackData(countryCode);
-        if (fallbackSuccess) {
-          fetchOutcomes[countryCode] = {};
-          return true;
-        }
-        fetchOutcomes[countryCode] = {
-          error: `Failed to fetch or process data for ${countryCode}`,
-        };
-        return null;
-      }
-    }
-    // Process all countries in parallel
-    await Promise.all(countryList.map(fetchCountryData));
-    const cachedAfterFetch = await readCountriesGeoJson(countryList);
-    const result: Record<string, any> = {};
-
-    for (const code of countryList) {
-      const stored = cachedAfterFetch[code] ?? cachedBeforeFetch[code];
-      if (stored) {
-        result[code] = stored;
-        continue;
-      }
-      const outcome = fetchOutcomes[code];
-      if (outcome?.error) {
-        result[code] = { error: outcome.error };
-      } else {
-        result[code] = { type: 'FeatureCollection', features: [] };
+        lastError = 'Failed to store data for the Americas';
       }
     }
 
-    return result;
+    if (!storedSuccessfully) {
+      const fallbackSuccess = await loadFallbackData(AMERICAS_CODE);
+      console.log('fallbackSuccess', fallbackSuccess);
+      if (!fallbackSuccess) {
+        lastError = americasRows?.length
+          ? 'No data available for the Americas'
+          : lastError ?? 'Failed to fetch or process data for the Americas';
+      }
+    }
+
+    const cachedAfterFetch = await readCountriesGeoJson(regionCodes);
+    const stored =
+      cachedAfterFetch[AMERICAS_CODE] ?? cachedBeforeFetch[AMERICAS_CODE];
+
+    if (stored) {
+      return { [AMERICAS_CODE]: stored };
+    }
+
+    if (lastError) {
+      return { [AMERICAS_CODE]: { error: lastError } };
+    }
+
+    return { [AMERICAS_CODE]: { type: 'FeatureCollection', features: [] } };
   } catch (error) {
     console.error(error);
     return null;

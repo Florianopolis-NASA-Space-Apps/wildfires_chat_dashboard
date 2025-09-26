@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import type { FeatureCollection } from 'geojson';
 import { apiWildfires } from '../../utils/apiWildfires';
 import { readCountriesGeoJson } from '../../utils/wildfireDb';
 
@@ -12,6 +13,7 @@ export interface IMapCoords {
 }
 
 const P2COORDS: IMapCoords = { lat: -10, lng: -78.3355236 };
+const REGION_CODE = 'AMERICAS' as const;
 
 export const MBox = ({
   dataMode,
@@ -24,85 +26,56 @@ export const MBox = ({
 }) => {
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
-  const [liveData, setLiveData] = useState<Record<
-    'BRA' | 'USA' | 'ARG',
-    any
-  > | null>(null);
+  const [liveData, setLiveData] = useState<FeatureCollection | null>(null);
 
   const setMapData = useCallback(
     async (map: mapboxgl.Map, mode: 'live' | 'historical') => {
-      const brazilSource = map.getSource(
-        'wildfires-brazil'
+      const americasSource = map.getSource(
+        'wildfires-americas'
       ) as mapboxgl.GeoJSONSource;
-      const usaSource = map.getSource(
-        'wildfires-usa'
-      ) as mapboxgl.GeoJSONSource;
-      const argentinaSource = map.getSource(
-        'wildfires-argentina'
-      ) as mapboxgl.GeoJSONSource;
-      if (!brazilSource || !usaSource || !argentinaSource) return;
+      if (!americasSource) return;
 
       if (mode === 'live') {
-        if (liveData) {
-          if (liveData.BRA && liveData.BRA.type === 'FeatureCollection') {
-            brazilSource.setData(liveData.BRA);
-          }
-          if (liveData.USA && liveData.USA.type === 'FeatureCollection') {
-            usaSource.setData(liveData.USA);
-          }
-          if (liveData.ARG && liveData.ARG.type === 'FeatureCollection') {
-            argentinaSource.setData(liveData.ARG);
-          }
+        if (liveData && liveData.type === 'FeatureCollection') {
+          americasSource.setData(liveData);
         } else {
-          const countryCodes = ['BRA', 'USA', 'ARG'];
+          const regionCodes = [REGION_CODE];
           setIsLoading(true);
           try {
-            const cached = await readCountriesGeoJson(countryCodes);
-            console.log('cached', cached);
-            const cachedBrazil = cached['BRA'];
-            const cachedUsa = cached['USA'];
-            const cachedArgentina = cached['ARG'];
+            const cached = await readCountriesGeoJson(regionCodes);
+            const cachedAmericas = cached[REGION_CODE];
 
-            if (cachedBrazil && cachedBrazil.type === 'FeatureCollection') {
-              brazilSource.setData(cachedBrazil);
-            }
-            if (cachedUsa && cachedUsa.type === 'FeatureCollection') {
-              usaSource.setData(cachedUsa);
-            }
             if (
-              cachedArgentina &&
-              cachedArgentina.type === 'FeatureCollection'
+              cachedAmericas &&
+              cachedAmericas.type === 'FeatureCollection'
             ) {
-              argentinaSource.setData(cachedArgentina);
+              americasSource.setData(cachedAmericas);
             }
 
             await apiWildfires({
-              countries: countryCodes.join(','),
               numberOfDays: '4',
             });
 
-            const refreshed = await readCountriesGeoJson(countryCodes);
-            if (refreshed.BRA && refreshed.BRA.type === 'FeatureCollection') {
-              brazilSource.setData(refreshed.BRA);
+            const refreshed = await readCountriesGeoJson(regionCodes);
+            const refreshedAmericas = refreshed[REGION_CODE];
+            if (
+              refreshedAmericas &&
+              refreshedAmericas.type === 'FeatureCollection'
+            ) {
+              americasSource.setData(refreshedAmericas);
+              setLiveData(refreshedAmericas);
+            } else {
+              setLiveData(null);
             }
-            if (refreshed.USA && refreshed.USA.type === 'FeatureCollection') {
-              usaSource.setData(refreshed.USA);
-            }
-            if (refreshed.ARG && refreshed.ARG.type === 'FeatureCollection') {
-              argentinaSource.setData(refreshed.ARG);
-            }
-            setLiveData(refreshed);
           } finally {
             setIsLoading(false);
           }
         }
       } else {
-        brazilSource.setData('/brazil.geojson');
-        usaSource.setData('/USA.geojson');
-        argentinaSource.setData('/argentina.geojson');
+        americasSource.setData('/americas.geojson');
       }
     },
-    [liveData]
+    [liveData, setIsLoading]
   );
 
   const addClusterLayers = useCallback(
@@ -169,39 +142,17 @@ export const MBox = ({
       });
 
       mapRef.current.on('load', () => {
-        // Add Brazil wildfires source
-        mapRef.current?.addSource('wildfires-brazil', {
+        // Add Americas wildfires source
+        mapRef.current?.addSource('wildfires-americas', {
           type: 'geojson',
-          data: 'brazil.geojson', // default to historical
-          cluster: true,
-          clusterMaxZoom: 14,
-          clusterRadius: 50,
-        });
-
-        // Add USA wildfires source
-        mapRef.current?.addSource('wildfires-usa', {
-          type: 'geojson',
-          data: 'USA.geojson', // default to historical
-          cluster: true,
-          clusterMaxZoom: 14,
-          clusterRadius: 50,
-        });
-
-        // Add Argentina wildfires source
-        mapRef.current?.addSource('wildfires-argentina', {
-          type: 'geojson',
-          data: 'argentina.geojson', // default to historical
+          data: 'americas.geojson',
           cluster: true,
           clusterMaxZoom: 14,
           clusterRadius: 50,
         });
 
         mapRef.current &&
-          addClusterLayers(mapRef.current, 'wildfires-brazil', 'brazil');
-        mapRef.current &&
-          addClusterLayers(mapRef.current, 'wildfires-usa', 'usa');
-        mapRef.current &&
-          addClusterLayers(mapRef.current, 'wildfires-argentina', 'argentina');
+          addClusterLayers(mapRef.current, 'wildfires-americas', 'americas');
       });
     }
 

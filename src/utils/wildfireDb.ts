@@ -195,7 +195,6 @@ export async function replaceCountryObservations(
   rawRows: Record<string, any>[]
 ): Promise<void> {
   const db = await getDatabase();
-  console.log('rawRows', rawRows);
   const normalized = rawRows
     .map((row) => normalizeObservation(row))
     .filter((row): row is ObservationRecord => Boolean(row));
@@ -294,29 +293,23 @@ export async function readCountriesGeoJson(
   if (!countryCodes.length) {
     return result;
   }
-
   const placeholders = countryCodes.map(() => '?').join(',');
   const statement = db.prepare(
     `SELECT * FROM observations WHERE country_code IN (${placeholders})`
   );
   statement.bind(countryCodes);
-
   for (const code of countryCodes) {
     result[code] = { type: 'FeatureCollection', features: [] };
   }
-
   while (statement.step()) {
     const row = statement.getAsObject();
     const code = String(row.country_code);
-    console.log('code', { code, codeResult: result[code] });
     if (!result[code]) {
       result[code] = { type: 'FeatureCollection', features: [] };
     }
     (result[code].features as Feature[]).push(rowToFeature(row));
   }
-
   statement.free();
-  console.log('result', result);
   return result;
 }
 
