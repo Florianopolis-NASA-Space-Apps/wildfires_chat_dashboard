@@ -22,6 +22,8 @@ export function ConsoleFooter({
         flexDirection: 'row',
         alignItems: 'stretch',
         justifyContent: 'space-between',
+        marginTop: -10,
+        marginBottom: -10,
       }}
     >
       <Button
