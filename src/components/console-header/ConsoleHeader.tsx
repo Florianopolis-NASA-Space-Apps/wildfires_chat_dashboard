@@ -1,7 +1,11 @@
 import { ExternalLink, GitHub } from 'react-feather';
 import { Button } from '../button/Button';
-import { GITHUB_REPO_URL } from '../../constants/links';
+import {
+  GITHUB_REPO_URL,
+  NASA_SPACE_APPS_WINNERS_URL,
+} from '../../constants/links';
 
+const SMALL_LOGO_SIZE = 80;
 const LOGO_IMAGE_SIZE = 130;
 
 interface ConsoleHeaderProps {
@@ -13,14 +17,18 @@ export function ConsoleHeader({
   isLargeScreen,
   onOpenSlideDeck,
 }: ConsoleHeaderProps) {
+  const logoSize = isLargeScreen ? LOGO_IMAGE_SIZE : SMALL_LOGO_SIZE;
+  const handleCardClick = () => {
+    window.open(NASA_SPACE_APPS_WINNERS_URL, '_blank');
+  };
   return (
     <div className="content-top">
       <div className="content-title">
         <img
           src="/logo_fires_satellites.png"
           style={{
-            width: LOGO_IMAGE_SIZE,
-            height: LOGO_IMAGE_SIZE,
+            width: logoSize,
+            height: logoSize,
             marginLeft: -30,
             marginRight: -10,
           }}
@@ -72,7 +80,13 @@ export function ConsoleHeader({
       )}
       <img
         src="/nasa-logo.png"
-        style={{ width: LOGO_IMAGE_SIZE, height: LOGO_IMAGE_SIZE }}
+        onClick={handleCardClick}
+        style={{
+          width: logoSize,
+          height: logoSize,
+          pointerEvents: 'all',
+          cursor: 'pointer',
+        }}
         alt="NASA logo"
       />
     </div>
