@@ -938,20 +938,22 @@ export function RealtimeVoiceModal({
           <span>{voiceError}</span>
         </div>
       )}
-      <div
-        className="realtime-voice-modal__starters"
-        aria-live="polite"
-        data-testid="conversation-starters"
-      >
-        <span className="realtime-voice-modal__starters-title">
-          Try saying...
-        </span>
-        <ul className="realtime-voice-modal__starters-list">
-          {CONVERSATION_STARTERS.map((starter) => (
-            <p key={starter}>{starter}</p>
-          ))}
-        </ul>
-      </div>
+      {isLargeScreen && (
+        <div
+          className="realtime-voice-modal__starters"
+          aria-live="polite"
+          data-testid="conversation-starters"
+        >
+          <span className="realtime-voice-modal__starters-title">
+            Try saying...
+          </span>
+          <ul className="realtime-voice-modal__starters-list">
+            {CONVERSATION_STARTERS.map((starter) => (
+              <p key={starter}>{starter}</p>
+            ))}
+          </ul>
+        </div>
+      )}
       {!!conversationItems.length &&
         isLargeScreen &&
         conversationItems.map((item: any, index: number) => {
