@@ -1,8 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Calendar, ChevronLeft, ChevronRight, Minimize2 } from 'react-feather';
+import {
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+  Minimize2,
+  X,
+} from 'react-feather';
 import { Button } from '../button/Button';
 import { getInclusiveDaySpan, type DateRange } from '../../utils/dates';
 import './DateRangeModal.scss';
+import { COLORS } from '../../constants/colors';
 
 interface DateRangeModalProps {
   isMinimized: boolean;
@@ -424,6 +431,14 @@ export function DateRangeModal({
       aria-labelledby="date-range-modal-title"
     >
       <div className="date-range-modal" data-component="DateRangeModal">
+        <button
+          type="button"
+          className="map-space-apps-close"
+          onClick={onMinimize}
+          aria-label="Dismiss NASA Space Apps announcement"
+        >
+          <X size={14} />
+        </button>
         <div className="date-range-modal__header">
           <h2
             id="date-range-modal-title"
@@ -569,6 +584,8 @@ export function DateRangeModal({
             type="button"
             buttonStyle="flush"
             label="Cancel"
+            style={{ backgroundColor: COLORS.slate500 }}
+            textStyle={{ color: 'white' }}
             onClick={() => {
               setError(null);
               onMinimize();

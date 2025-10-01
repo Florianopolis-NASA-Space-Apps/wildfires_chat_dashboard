@@ -40,6 +40,7 @@ const PROD_BASE_URL = 'https://api.landscapesupply.app';
 const DEV_BASE_URL = 'http://localhost:3000';
 const VOICE_RELAY_ENDPOINT = `${PROD_BASE_URL}/api/grow/relay`;
 const DEFAULT_REALTIME_MODEL = 'gpt-realtime-2025-08-28';
+const RELAY_SESSION_EXPIRY_BUFFER_MS = 5_000;
 
 type GrowRelaySession = {
   clientSecret: string;
@@ -131,6 +132,44 @@ function summarizeBoundingBox(bounds: BoundingBox, label?: string): string {
   return parts.join('\n');
 }
 
+function normalizeExpirationTimestamp(raw: unknown): number | null {
+  if (raw === null || raw === undefined) {
+    return null;
+  }
+  if (typeof raw === 'number') {
+    if (!Number.isFinite(raw)) {
+      return null;
+    }
+    return raw > 1e12 ? Math.floor(raw) : Math.floor(raw * 1000);
+  }
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim();
+    if (!trimmed.length) {
+      return null;
+    }
+    const numeric = Number(trimmed);
+    if (Number.isFinite(numeric)) {
+      return numeric > 1e12 ? Math.floor(numeric) : Math.floor(numeric * 1000);
+    }
+    const parsed = Date.parse(trimmed);
+    if (!Number.isNaN(parsed)) {
+      return parsed;
+    }
+    return null;
+  }
+  return null;
+}
+
+function hasExpirationElapsed(
+  expiresAt: number | null,
+  bufferMs: number = 0
+): boolean {
+  if (expiresAt === null) {
+    return false;
+  }
+  return Date.now() >= expiresAt - bufferMs;
+}
+
 export function RealtimeVoiceModal({
   onMarkerUpdate,
   onMapPositionChange,
@@ -174,7 +213,7 @@ export function RealtimeVoiceModal({
       case 'authorizing':
         return 'Authorizing microphone';
       case 'connecting':
-        return 'Connecting to Voice Assistnt';
+        return 'Connecting to Voice Assistant';
       case 'running':
         return 'Live';
       case 'error':
@@ -664,6 +703,36 @@ export function RealtimeVoiceModal({
     ]
   );
 
+  const fetchRelaySession = useCallback(
+    async (sessionConfig: Partial<SessionConfig>) => {
+      const response = await fetch(VOICE_RELAY_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: DEFAULT_REALTIME_MODEL,
+          sessionConfig,
+        }),
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(
+          `Relay request failed (${response.status}): ${errorText}`.trim()
+        );
+      }
+      const session = (await response.json()) as GrowRelaySession & {
+        expiresAt: unknown;
+      };
+      const normalizedSession: GrowRelaySession = {
+        ...session,
+        expiresAt: normalizeExpirationTimestamp(session.expiresAt),
+      };
+      return normalizedSession;
+    },
+    []
+  );
+
   const stopVoiceSession = useCallback(async () => {
     await teardownVoiceSession();
   }, [teardownVoiceSession]);
@@ -727,23 +796,23 @@ export function RealtimeVoiceModal({
 
     let relaySession: GrowRelaySession;
     try {
-      const response = await fetch(VOICE_RELAY_ENDPOINT, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: DEFAULT_REALTIME_MODEL,
-          sessionConfig,
-        }),
-      });
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(
-          `Relay request failed (${response.status}): ${errorText}`.trim()
+      let candidate: GrowRelaySession | null = null;
+      const maxAttempts = 2;
+      for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+        const session = await fetchRelaySession(sessionConfig);
+        const expired = hasExpirationElapsed(
+          session.expiresAt,
+          RELAY_SESSION_EXPIRY_BUFFER_MS
         );
+        if (!expired) {
+          candidate = session;
+          break;
+        }
       }
-      relaySession = (await response.json()) as GrowRelaySession;
+      if (!candidate) {
+        throw new Error('Voice relay session expired before it could be used.');
+      }
+      relaySession = candidate;
     } catch (err) {
       await teardownVoiceSession({ resetStatus: false });
       console.error('Failed to authorize voice session', err);
@@ -901,6 +970,7 @@ export function RealtimeVoiceModal({
     startVisualization();
   }, [
     configureClientTools,
+    fetchRelaySession,
     startVisualization,
     teardownVoiceSession,
     updateVoiceStatus,
@@ -930,14 +1000,51 @@ export function RealtimeVoiceModal({
     }
   }, [expandedEventIndex, realtimeEvents.length]);
 
-  return (
+  const shouldShowTopVoiceModal = Boolean(isSessionActive && voiceStatusLabel);
+
+  const topVoiceModal = shouldShowTopVoiceModal ? (
+    <div className="top-voice-data-modal" data-component="TopVoiceDataModal">
+      <div className="top-voice-data-modal__header">
+        <div className="top-voice-data-modal__status" aria-live="polite">
+          {voiceStatus === 'running' ? (
+            <span
+              className="top-voice-data-modal__status-dot"
+              aria-hidden="true"
+            />
+          ) : (
+            <Spinner size={14} />
+          )}
+          <span>{voiceStatusLabel}</span>
+        </div>
+        <span className="top-voice-data-modal__hint">
+          {voiceStatus === 'running' ? null : 'Connecting…'}
+        </span>
+      </div>
+      {voiceStatus === 'running' ? (
+        <div className="realtime-voice-modal__visualization">
+          <div className="realtime-voice-modal__visualization-entry realtime-voice-modal__visualization-entry--client">
+            <span>Mic</span>
+            <canvas ref={inputCanvasRef} />
+          </div>
+          <div className="realtime-voice-modal__visualization-entry realtime-voice-modal__visualization-entry--server">
+            <span>AI</span>
+            <canvas ref={outputCanvasRef} />
+          </div>
+        </div>
+      ) : (
+        <div className="top-voice-data-modal__message">
+          <Spinner size={18} />
+          <span>Preparing your voice session…</span>
+        </div>
+      )}
+    </div>
+  ) : null;
+
+  const bottomVoiceModal = (
     <div className="realtime-voice-modal" data-component="RealtimeVoiceModal">
       <div className="realtime-voice-modal__header">
         <div className="realtime-voice-modal__status">
           <span className="realtime-voice-modal__title">Voice Assistant</span>
-          <span className="realtime-voice-modal__subtitle">
-            {voiceStatusLabel}
-          </span>
         </div>
         <div className="realtime-voice-modal__controls">
           {voiceStatus === 'running' ? (
@@ -975,15 +1082,13 @@ export function RealtimeVoiceModal({
             <Button
               icon={RefreshCw}
               label="Reset"
+              iconColor={'white'}
+              textStyle={{ color: COLORS.white }}
               buttonStyle="flush"
               disabled={!conversationItems.length && !realtimeEvents.length}
               onClick={resetConversation}
             />
           )}
-          {isSessionActive &&
-            (voiceStatus === 'connecting' || voiceStatus === 'authorizing') && (
-              <Spinner size={18} />
-            )}
         </div>
       </div>
       {voiceError && (
@@ -1008,77 +1113,18 @@ export function RealtimeVoiceModal({
           </ul>
         </div>
       )}
-      {/* {!!conversationItems.length &&
-        isLargeScreen &&
-        conversationItems.map((item: any, index: number) => {
-          const roleLabel = (item.role || item.type || 'item') as string;
-          const normalizedRole = roleLabel.toLowerCase();
-          const transcriptRaw = item?.formatted?.transcript || '';
-          const transcript =
-            transcriptRaw?.trim() === '' ? '' : transcriptRaw?.trim();
-          const textContent = item?.formatted?.text?.trim() || '';
-          let message = transcript || textContent || '[audio message]';
-          let detail: string | null = null;
-          if (item.type === 'function_call' && item.formatted?.tool) {
-            return null;
-            // message = `Tool call → ${item.formatted.tool.name}`;
-            // const args = item.formatted.tool.arguments;
-            // if (typeof args === 'string' && args.trim().length) {
-            //   detail = prettyPrintMaybeJson(args);
-            // }
-          } else if (item.type === 'function_call_output') {
-            return null;
-            // message = 'Tool result';
-            // const output =
-            //   typeof item.formatted?.output === 'string'
-            //     ? item.formatted.output
-            //     : typeof item.output === 'string'
-            //     ? item.output
-            //     : '';
-            // if (output.trim().length) {
-            //   detail = prettyPrintMaybeJson(output);
-            // }
-          }
-          return (
-            <div className="realtime-voice-modal__body" key={index}>
-              <div className="realtime-voice-modal__conversation">
-                <div key={item.id} className="realtime-voice-modal__message">
-                  <div
-                    className={`realtime-voice-modal__speaker realtime-voice-modal__speaker--${normalizedRole}`}
-                  >
-                    {roleLabel}
-                  </div>
-                  <div className="realtime-voice-modal__message-content">
-                    <div>{message}</div>
-                    {detail && (
-                      <pre className="realtime-voice-modal__tool-detail">
-                        {detail}
-                      </pre>
-                    )}
-                    {item.status && item.status !== 'completed' && (
-                      <div className="realtime-voice-modal__message-status">
-                        {item.status}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          );
-        })} */}
-      <div
-        className="realtime-voice-modal__visualization"
-        style={{ display: isSessionActive ? undefined : 'none' }}
-      >
-        <div className="realtime-voice-modal__visualization-entry realtime-voice-modal__visualization-entry--client">
-          <span>Mic</span>
-          <canvas ref={inputCanvasRef} />
-        </div>
-        <div className="realtime-voice-modal__visualization-entry realtime-voice-modal__visualization-entry--server">
-          <span>AI</span>
-          <canvas ref={outputCanvasRef} />
-        </div>
-      </div>
+    </div>
+  );
+
+  return (
+    <div
+      className={`realtime-voice-modal-stack${
+        shouldShowTopVoiceModal ? ' realtime-voice-modal-stack--active' : ''
+      }`}
+      data-component="RealtimeVoiceModalStack"
+    >
+      {topVoiceModal}
+      {bottomVoiceModal}
     </div>
   );
 }

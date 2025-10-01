@@ -74,6 +74,9 @@
   &.icon-grey .icon {
     color: var(--color-neutral-450);
   }
+  &.icon-white .icon {
+    color: var(--color-white);
+  }
   &.icon-fill {
     svg {
       fill: currentColor;

@@ -21,7 +21,7 @@ export function MapLoadingModal({ state }: MapLoadingModalProps) {
       aria-live="polite"
     >
       {isLoading ? (
-        <Spinner size={36} color={COLORS.navy} />
+        <Spinner size={36} color={COLORS.skyBlue} />
       ) : (
         <div className="map-loading-checkmark" aria-hidden="true">
           <svg
