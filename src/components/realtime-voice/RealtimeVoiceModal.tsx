@@ -954,7 +954,7 @@ export function RealtimeVoiceModal({
           </ul>
         </div>
       )}
-      {!!conversationItems.length &&
+      {/* {!!conversationItems.length &&
         isLargeScreen &&
         conversationItems.map((item: any, index: number) => {
           const roleLabel = (item.role || item.type || 'item') as string;
@@ -1011,7 +1011,7 @@ export function RealtimeVoiceModal({
               </div>
             </div>
           );
-        })}
+        })} */}
       <div
         className="realtime-voice-modal__visualization"
         style={{ display: isSessionActive ? undefined : 'none' }}
