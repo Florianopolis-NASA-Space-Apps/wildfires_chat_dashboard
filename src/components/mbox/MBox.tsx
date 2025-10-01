@@ -130,13 +130,7 @@ export const MBox = ({
         setIsLoading(false);
       }
     },
-    [
-      liveData,
-      numberOfDays,
-      setIsLoading,
-      startDate,
-      updateObservationCount,
-    ]
+    [liveData, numberOfDays, setIsLoading, startDate, updateObservationCount]
   );
 
   const addWildfireLayers = useCallback(
@@ -501,20 +495,36 @@ export const MBox = ({
     }
     const popupEl = document.createElement('div');
     popupEl.className = 'map-marker-popup';
+    popupEl.style.backgroundColor = COLORS.slate900;
+    popupEl.style.border = `1px solid ${COLORS.skyBlue}`;
+    popupEl.style.borderRadius = '6px';
+    popupEl.style.padding = '8px 12px';
+    popupEl.style.color = COLORS.white;
+    popupEl.style.fontSize = '13px';
+    popupEl.style.fontFamily = 'Assistant, sans-serif';
+    popupEl.style.boxShadow = `0 4px 12px rgba(0, 0, 0, 0.3)`;
+
     const titleEl = document.createElement('div');
     titleEl.style.fontWeight = '600';
+    titleEl.style.color = COLORS.white;
+    titleEl.style.marginBottom = '4px';
     titleEl.textContent =
       marker.location && marker.location.trim().length
         ? marker.location
         : `${lat.toFixed(2)}, ${lng.toFixed(2)}`;
     popupEl.appendChild(titleEl);
+
     const coordEl = document.createElement('div');
     coordEl.style.fontSize = '11px';
-    coordEl.style.opacity = '0.7';
+    coordEl.style.color = COLORS.skyBlue;
+    coordEl.style.opacity = '0.8';
     coordEl.textContent = `Lat ${lat.toFixed(2)} · Lng ${lng.toFixed(2)}`;
     popupEl.appendChild(coordEl);
     if (marker.temperature) {
       const tempEl = document.createElement('div');
+      tempEl.style.fontSize = '12px';
+      tempEl.style.color = COLORS.white;
+      tempEl.style.marginTop = '3px';
       tempEl.textContent = `Temp: ${marker.temperature.value.toFixed(1)} ${
         marker.temperature.units
       }`;
@@ -522,6 +532,9 @@ export const MBox = ({
     }
     if (marker.wind_speed) {
       const windEl = document.createElement('div');
+      windEl.style.fontSize = '12px';
+      windEl.style.color = COLORS.white;
+      windEl.style.marginTop = '3px';
       windEl.textContent = `Wind: ${marker.wind_speed.value.toFixed(1)} ${
         marker.wind_speed.units
       }`;
@@ -529,6 +542,9 @@ export const MBox = ({
     }
     if (marker.daysSinceRain !== undefined && marker.daysSinceRain !== null) {
       const rainEl = document.createElement('div');
+      rainEl.style.fontSize = '12px';
+      rainEl.style.color = COLORS.white;
+      rainEl.style.marginTop = '3px';
       rainEl.textContent =
         marker.daysSinceRain === -1
           ? 'No rain in the past 10+ days'

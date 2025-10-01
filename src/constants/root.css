@@ -16,8 +16,7 @@ body {
   font-style: normal;
   color: rgba(var(--color-white-rgb), 0.9);
   background-color: #0f172a !important;
-  background:
-    radial-gradient(
+  background: radial-gradient(
       circle at 20% 20%,
       rgba(var(--color-sky-blue-rgb), 0.12) 0%,
       rgba(var(--color-slate-950-rgb), 0.05) 42%,
@@ -45,4 +44,43 @@ body {
 .mapboxgl-ctrl-attrib,
 .mapboxgl-ctrl-attrib.mapboxgl-compact {
   display: none !important;
+}
+
+/* Custom popup styles to match deep space theme */
+.mapboxgl-popup {
+  z-index: 1000;
+}
+
+.mapboxgl-popup-content {
+  background: #0f172a !important;
+  border: 1px solid #0ea5e9 !important;
+  border-radius: 6px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+  padding: 0 !important;
+  color: #ffffff !important;
+  font-family: 'Assistant', sans-serif !important;
+}
+
+.mapboxgl-popup-tip {
+  border-top-color: #0ea5e9 !important;
+  border-bottom-color: #0ea5e9 !important;
+  border-left-color: #0ea5e9 !important;
+  border-right-color: #0ea5e9 !important;
+}
+
+.mapboxgl-popup-close-button {
+  color: #0ea5e9 !important;
+  background: transparent !important;
+  border: none !important;
+  font-size: 16px !important;
+  font-weight: bold !important;
+  cursor: pointer !important;
+  padding: 4px 8px !important;
+  right: 4px !important;
+  top: 4px !important;
+}
+
+.mapboxgl-popup-close-button:hover {
+  color: #ffffff !important;
+  background: rgba(14, 165, 233, 0.2) !important;
 }
