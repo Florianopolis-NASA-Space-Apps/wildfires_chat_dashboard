@@ -19,6 +19,7 @@ interface DateRangeModalProps {
   currentRange: DateRange;
   minDate?: Date;
   maxDate?: Date;
+  observationCount?: number | null;
 }
 
 const MAX_RANGE_DAYS = 4;
@@ -119,6 +120,7 @@ export function DateRangeModal({
   currentRange,
   minDate,
   maxDate,
+  observationCount,
 }: DateRangeModalProps) {
   const [error, setError] = useState<string | null>(null);
   const [selectedRange, setSelectedRange] = useState<SelectedRangeState>(
@@ -187,6 +189,20 @@ export function DateRangeModal({
       currentRange.endDate
     )}`;
   }, [currentRange.endDate, currentRange.startDate]);
+
+  const observationCountLabel = useMemo(() => {
+    if (typeof observationCount === 'number') {
+      return `${observationCount.toLocaleString('en-US')} fires`;
+    }
+    return 'Loading...';
+  }, [observationCount]);
+
+  const observationCountClassName = useMemo(() => {
+    const isLoaded = typeof observationCount === 'number';
+    return `date-range-modal__minimized-count${
+      isLoaded ? '' : ' date-range-modal__minimized-count--loading'
+    }`;
+  }, [observationCount]);
 
   const monthLabelFormatter = useMemo(
     () =>
@@ -415,6 +431,11 @@ export function DateRangeModal({
             <span>Timeframe</span>
             <strong>{rangeLabel}</strong>
           </div>
+          {typeof observationCount === 'number' && observationCount > 0 && (
+            <div className={observationCountClassName}>
+              {observationCountLabel}
+            </div>
+          )}
         </button>
       </div>
     );

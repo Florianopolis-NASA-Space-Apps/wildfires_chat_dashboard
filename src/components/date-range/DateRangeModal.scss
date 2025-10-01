@@ -80,6 +80,28 @@
   }
 }
 
+.date-range-modal__minimized-count {
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  background: linear-gradient(
+    135deg,
+    rgba(var(--color-alert-red-rgb), 0.92),
+    rgba(var(--color-orange-bright-rgb), 0.88)
+  );
+  color: rgba(var(--color-white-rgb), 0.98);
+  box-shadow: 0 0 14px rgba(var(--color-alert-red-rgb), 0.45);
+  white-space: nowrap;
+  transition: opacity 150ms ease;
+}
+
+.date-range-modal__minimized-count--loading {
+  opacity: 0.7;
+}
+
 .date-range-modal__header {
   display: flex;
   align-items: center;

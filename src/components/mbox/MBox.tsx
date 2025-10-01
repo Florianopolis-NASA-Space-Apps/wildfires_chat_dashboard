@@ -27,7 +27,7 @@ const P2COORDS: IMapCoords = {
 };
 const DEFAULT_GLOBAL_ZOOM = 2;
 const REGION_CODE = 'AMERICAS' as const;
-const AUTO_ROTATION_DEG_PER_SEC = 2;
+const AUTO_ROTATION_DEG_PER_SEC = 3;
 
 const normalizeLongitude = (lng: number) => {
   const wrapped = (((lng + 180) % 360) + 360) % 360;
@@ -41,6 +41,7 @@ export const MBox = ({
   marker,
   numberOfDays,
   startDate,
+  onObservationCountChange,
 }: {
   isLargeScreen: boolean;
   setIsLoading: (loading: boolean) => void;
@@ -48,6 +49,7 @@ export const MBox = ({
   marker: MapMarkerDetails | null;
   numberOfDays: string;
   startDate: string;
+  onObservationCountChange?: (count: number | null) => void;
 }) => {
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
@@ -58,6 +60,25 @@ export const MBox = ({
   const rotationFrameRef = useRef<number | null>(null);
   const rotationLastTimestampRef = useRef<number | null>(null);
   const [isMapReady, setIsMapReady] = useState(false);
+
+  const updateObservationCount = useCallback(
+    (collection: FeatureCollection | null | undefined) => {
+      if (!onObservationCountChange) {
+        return;
+      }
+
+      if (
+        collection &&
+        collection.type === 'FeatureCollection' &&
+        Array.isArray(collection.features)
+      ) {
+        onObservationCountChange(collection.features.length);
+      } else {
+        onObservationCountChange(null);
+      }
+    },
+    [onObservationCountChange]
+  );
 
   const setMapData = useCallback(
     async (map: mapboxgl.Map) => {
@@ -72,6 +93,7 @@ export const MBox = ({
         lastFetchKeyRef.current === fetchKey
       ) {
         americasSource.setData(liveData);
+        updateObservationCount(liveData);
         return;
       }
       const regionCodes = [REGION_CODE];
@@ -82,6 +104,9 @@ export const MBox = ({
 
         if (cachedAmericas && cachedAmericas.type === 'FeatureCollection') {
           americasSource.setData(cachedAmericas);
+          updateObservationCount(cachedAmericas);
+        } else {
+          updateObservationCount(null);
         }
         await apiWildfires({
           numberOfDays,
@@ -95,15 +120,23 @@ export const MBox = ({
         ) {
           americasSource.setData(refreshedAmericas);
           setLiveData(refreshedAmericas);
+          updateObservationCount(refreshedAmericas);
         } else {
           setLiveData(null);
+          updateObservationCount(null);
         }
         lastFetchKeyRef.current = fetchKey;
       } finally {
         setIsLoading(false);
       }
     },
-    [liveData, numberOfDays, setIsLoading, startDate]
+    [
+      liveData,
+      numberOfDays,
+      setIsLoading,
+      startDate,
+      updateObservationCount,
+    ]
   );
 
   const addWildfireLayers = useCallback(

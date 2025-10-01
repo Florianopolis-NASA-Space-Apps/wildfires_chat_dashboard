@@ -35,6 +35,7 @@ export function Dashboard() {
   >(null);
   const [observationValue, setObservationValue] =
     useState<BoundingBoxObservationStats | null>(null);
+  const [observationCount, setObservationCount] = useState<number | null>(null);
   const [selectedDateRange, setSelectedDateRange] = useState<DateRange>(() =>
     getDefaultDateRange({ daysBack: 2 })
   );
@@ -75,6 +76,10 @@ export function Dashboard() {
 
   const dismissSpaceAppsModal = useCallback(() => {
     setIsSpaceAppsModalVisible(false);
+  }, []);
+
+  const handleObservationCountChange = useCallback((count: number | null) => {
+    setObservationCount(count);
   }, []);
 
   const openDateRangeModal = useCallback(() => {
@@ -164,6 +169,7 @@ export function Dashboard() {
               marker={markerInfo}
               numberOfDays={selectedNumberOfDays}
               startDate={selectedStartDate}
+              onObservationCountChange={handleObservationCountChange}
             />
             <MapLoadingModal state={loadingModalState} />
             <HackathonWinners
@@ -194,6 +200,7 @@ export function Dashboard() {
                 onApply={applyDateRange}
                 currentRange={selectedDateRange}
                 maxDate={new Date()}
+                observationCount={observationCount}
               />
             )}
           </div>
