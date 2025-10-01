@@ -22,14 +22,20 @@ export interface MapMarkerDetails extends IMapCoords {
 
 // const P2COORDS: IMapCoords = { lat: -10, lng: -78.3355236 };
 const P2COORDS: IMapCoords = {
-  lat: 14,
-  lng: -30,
+  lat: 3,
+  lng: -80,
 };
+const DEFAULT_GLOBAL_ZOOM = 2;
 const REGION_CODE = 'AMERICAS' as const;
+const AUTO_ROTATION_DEG_PER_SEC = 2;
+
+const normalizeLongitude = (lng: number) => {
+  const wrapped = (((lng + 180) % 360) + 360) % 360;
+  return wrapped - 180;
+};
 
 export const MBox = ({
   isLargeScreen,
-  isExtraLargeScreen,
   setIsLoading,
   focusCoords,
   marker,
@@ -37,7 +43,6 @@ export const MBox = ({
   startDate,
 }: {
   isLargeScreen: boolean;
-  isExtraLargeScreen: boolean;
   setIsLoading: (loading: boolean) => void;
   focusCoords: IMapCoords | null;
   marker: MapMarkerDetails | null;
@@ -50,6 +55,8 @@ export const MBox = ({
   const lastFetchKeyRef = useRef<string | null>(null);
   const markerRef = useRef<mapboxgl.Marker | null>(null);
   const popupRef = useRef<mapboxgl.Popup | null>(null);
+  const rotationFrameRef = useRef<number | null>(null);
+  const rotationLastTimestampRef = useRef<number | null>(null);
   const [isMapReady, setIsMapReady] = useState(false);
 
   const setMapData = useCallback(
@@ -99,55 +106,193 @@ export const MBox = ({
     [liveData, numberOfDays, setIsLoading, startDate]
   );
 
-  const addClusterLayers = useCallback(
-    (map: mapboxgl.Map, sourceId: string, suffix: string) => {
-      map.addLayer({
-        id: `clusters-${suffix}`,
-        type: 'circle',
-        source: sourceId,
-        filter: ['has', 'point_count'],
-        paint: {
-          'circle-color': [
-            'step',
-            ['get', 'point_count'],
-            COLORS.orange,
-            100,
-            COLORS.crimson,
-            750,
-            COLORS.amber,
-          ],
-          'circle-radius': [
-            'step',
-            ['get', 'point_count'],
-            20,
-            100,
-            30,
-            750,
-            40,
-          ],
+  const addWildfireLayers = useCallback(
+    (map: mapboxgl.Map, sourceId: string) => {
+      const symbolLayerId = (() => {
+        const layers = map.getStyle()?.layers ?? [];
+        for (const layer of layers) {
+          if (layer.type !== 'symbol') continue;
+          const layout = (
+            layer as mapboxgl.AnyLayer & {
+              layout?: Record<string, unknown>;
+            }
+          ).layout;
+          const textField = layout?.['text-field'];
+          if (typeof textField === 'string' && textField.trim().length > 0) {
+            return layer.id;
+          }
+        }
+        return undefined;
+      })();
+
+      map.addLayer(
+        {
+          id: `${sourceId}-heatmap`,
+          type: 'heatmap',
+          source: sourceId,
+          maxzoom: 9,
+          paint: {
+            'heatmap-weight': [
+              'interpolate',
+              ['linear'],
+              [
+                'coalesce',
+                ['to-number', ['get', 'frp']],
+                ['to-number', ['get', 'brightness']],
+                0,
+              ],
+              0,
+              0,
+              250,
+              1,
+            ],
+            'heatmap-intensity': [
+              'interpolate',
+              ['linear'],
+              ['zoom'],
+              0,
+              0.8,
+              6,
+              1.6,
+              9,
+              3.2,
+            ],
+            'heatmap-color': [
+              'interpolate',
+              ['linear'],
+              ['heatmap-density'],
+              0,
+              'rgba(16, 16, 32, 0)',
+              0.15,
+              '#ff4500', // OrangeRed
+              0.35,
+              '#ff6347', // Tomato
+              0.6,
+              '#ff8c00', // DarkOrange
+              0.85,
+              '#ffa500', // Orange
+              1,
+              '#ff0000', // Red
+            ],
+            'heatmap-radius': [
+              'interpolate',
+              ['linear'],
+              ['zoom'],
+              0,
+              6,
+              6,
+              16,
+              9,
+              32,
+            ],
+            'heatmap-opacity': [
+              'interpolate',
+              ['linear'],
+              ['zoom'],
+              7,
+              0.9,
+              9,
+              0.1,
+            ],
+          },
         },
-      });
-      map.addLayer({
-        id: `cluster-count-${suffix}`,
-        type: 'symbol',
-        source: sourceId,
-        filter: ['has', 'point_count'],
-        layout: {
-          'text-field': '{point_count_abbreviated}',
-          'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
-          'text-size': 12,
+        symbolLayerId
+      );
+
+      map.addLayer(
+        {
+          id: `${sourceId}-halo`,
+          type: 'circle',
+          source: sourceId,
+          minzoom: 5,
+          paint: {
+            'circle-radius': [
+              'interpolate',
+              ['linear'],
+              ['zoom'],
+              5,
+              4,
+              8,
+              14,
+              12,
+              36,
+            ],
+            'circle-color': 'rgba(255, 56, 152, 0.45)',
+            'circle-blur': 0.85,
+            'circle-opacity': [
+              'interpolate',
+              ['linear'],
+              ['zoom'],
+              5,
+              0.2,
+              8,
+              0.55,
+              12,
+              0.1,
+            ],
+          },
         },
-      });
-      map.addLayer({
-        id: `unclustered-point-${suffix}`,
-        type: 'circle',
-        source: sourceId,
-        filter: ['!', ['has', 'point_count']],
-        paint: {
-          'circle-color': COLORS.orange,
-          'circle-radius': 12,
+        symbolLayerId
+      );
+
+      map.addLayer(
+        {
+          id: `${sourceId}-points`,
+          type: 'circle',
+          source: sourceId,
+          minzoom: 4,
+          paint: {
+            'circle-radius': [
+              'interpolate',
+              ['linear'],
+              ['zoom'],
+              4,
+              2.4,
+              8,
+              5.2,
+              12,
+              9,
+              15,
+              14,
+            ],
+            'circle-color': COLORS.white,
+            'circle-stroke-width': [
+              'interpolate',
+              ['linear'],
+              ['zoom'],
+              4,
+              1,
+              12,
+              2.4,
+              15,
+              4,
+            ],
+            'circle-stroke-color': [
+              'interpolate',
+              ['linear'],
+              ['coalesce', ['to-number', ['get', 'confidence']], 0],
+              0,
+              COLORS.skyBlue,
+              50,
+              COLORS.electricBlue,
+              100,
+              COLORS.orangeBright,
+            ],
+            'circle-opacity': [
+              'interpolate',
+              ['linear'],
+              ['zoom'],
+              4,
+              0.4,
+              8,
+              0.85,
+              15,
+              1,
+            ],
+          },
         },
-      });
+        symbolLayerId
+      );
     },
     []
   );
@@ -157,22 +302,33 @@ export const MBox = ({
     if (mapContainerRef.current) {
       mapRef.current = new mapboxgl.Map({
         container: mapContainerRef.current,
-        style: 'mapbox://styles/mapbox/satellite-v9',
+        style: 'mapbox://styles/mapbox/dark-v10',
         attributionControl: false,
         center: [P2COORDS.lng, P2COORDS.lat],
-        zoom: 2.5,
+        zoom: DEFAULT_GLOBAL_ZOOM,
+        pitch: 0,
+        bearing: 0,
+        projection: { name: 'globe' },
       });
+      mapRef.current.addControl(
+        new mapboxgl.NavigationControl({ visualizePitch: true }),
+        'top-right'
+      );
       mapRef.current.on('load', () => {
-        // Add Americas wildfires source
+        mapRef.current?.setFog({
+          range: [0.65, 8],
+          color: 'rgba(7, 11, 25, 0.8)',
+          'high-color': 'rgba(86, 206, 255, 0.25)',
+          'space-color': '#020817',
+          'star-intensity': 0.5,
+        });
+
         mapRef.current?.addSource('wildfires-americas', {
           type: 'geojson',
           data: 'americas.geojson',
-          cluster: true,
-          clusterMaxZoom: 14,
-          clusterRadius: 50,
         });
         mapRef.current &&
-          addClusterLayers(mapRef.current, 'wildfires-americas', 'americas');
+          addWildfireLayers(mapRef.current, 'wildfires-americas');
         setIsMapReady(true);
       });
     }
@@ -182,6 +338,10 @@ export const MBox = ({
       mapRef.current && mapRef.current.remove();
       markerRef.current = null;
       popupRef.current = null;
+      if (rotationFrameRef.current !== null) {
+        window.cancelAnimationFrame(rotationFrameRef.current);
+        rotationFrameRef.current = null;
+      }
       setIsMapReady(false);
     };
   }, []);
@@ -190,6 +350,96 @@ export const MBox = ({
     if (!mapRef.current || !isMapReady) return;
     setMapData(mapRef.current);
   }, [isMapReady, setMapData]);
+
+  useEffect(() => {
+    if (!mapRef.current || !isMapReady) {
+      return;
+    }
+
+    const map = mapRef.current;
+    const cancelRotation = () => {
+      if (rotationFrameRef.current !== null) {
+        window.cancelAnimationFrame(rotationFrameRef.current);
+        rotationFrameRef.current = null;
+      }
+      rotationLastTimestampRef.current = null;
+    };
+
+    map.jumpTo({
+      center: [P2COORDS.lng, P2COORDS.lat],
+      bearing: 0,
+      pitch: 0,
+      zoom: DEFAULT_GLOBAL_ZOOM,
+    });
+
+    const rotateStep = (timestamp: number) => {
+      if (!mapRef.current) {
+        return;
+      }
+
+      if (rotationLastTimestampRef.current === null) {
+        rotationLastTimestampRef.current = timestamp;
+      }
+
+      const deltaMs = timestamp - rotationLastTimestampRef.current;
+      rotationLastTimestampRef.current = timestamp;
+
+      const deltaDegrees = (deltaMs / 1000) * AUTO_ROTATION_DEG_PER_SEC;
+      const currentCenter = mapRef.current.getCenter();
+      const nextLng = normalizeLongitude(currentCenter.lng + deltaDegrees);
+
+      mapRef.current.setCenter([nextLng, currentCenter.lat]);
+
+      const currentBearing = mapRef.current.getBearing();
+      if (Math.abs(currentBearing) > 0.0001) {
+        mapRef.current.setBearing(0);
+      }
+
+      const currentPitch = mapRef.current.getPitch();
+      if (Math.abs(currentPitch) > 0.0001) {
+        mapRef.current.setPitch(0);
+      }
+
+      rotationFrameRef.current = window.requestAnimationFrame(rotateStep);
+    };
+
+    const startRotation = () => {
+      cancelRotation();
+      rotationLastTimestampRef.current = null;
+      rotationFrameRef.current = window.requestAnimationFrame(rotateStep);
+    };
+
+    const interactionEvents: Array<
+      | 'mousedown'
+      | 'touchstart'
+      | 'wheel'
+      | 'dragstart'
+      | 'rotatestart'
+      | 'pitchstart'
+    > = [
+      'mousedown',
+      'touchstart',
+      'wheel',
+      'dragstart',
+      'rotatestart',
+      'pitchstart',
+    ];
+
+    const stopRotation = () => {
+      cancelRotation();
+      interactionEvents.forEach((event) => map.off(event, stopRotation));
+    };
+
+    // Allow the user to take over rotation on any interaction.
+    interactionEvents.forEach((event) => map.on(event, stopRotation));
+
+    startRotation();
+
+    return () => {
+      cancelRotation();
+      interactionEvents.forEach((event) => map.off(event, stopRotation));
+    };
+  }, [isMapReady]);
 
   useEffect(() => {
     if (!mapRef.current || !isMapReady) return;
@@ -271,10 +521,11 @@ export const MBox = ({
     if (!mapRef.current || !isMapReady || focusCoords) return;
     mapRef.current.flyTo({
       center: [P2COORDS.lng, P2COORDS.lat],
-      zoom: isExtraLargeScreen ? 1.6 : 1.2,
+      zoom: DEFAULT_GLOBAL_ZOOM,
+      pitch: 0,
       essential: false,
     });
-  }, [isMapReady, focusCoords, isExtraLargeScreen]);
+  }, [isMapReady, focusCoords]);
 
   return (
     <div
