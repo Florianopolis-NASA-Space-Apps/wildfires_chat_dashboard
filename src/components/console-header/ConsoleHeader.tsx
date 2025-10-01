@@ -40,7 +40,7 @@ export function ConsoleHeader({
               style={{
                 fontSize: 50,
                 fontWeight: 700,
-                color: 'var(--color-sky-blue)',
+                color: 'var(--color-white)',
                 display: 'block',
                 marginBottom: -8,
                 marginLeft: -4,
