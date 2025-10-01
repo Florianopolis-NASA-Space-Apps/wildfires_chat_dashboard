@@ -28,7 +28,7 @@ Global Recovery and Observation of Wildfires (GROW) is an AI-assisted wildfire i
 - Node.js ≥ 18 and Yarn (recommended) or npm.
 - Mapbox access token with Maps SDK enabled.
 - NASA FIRMS “map key” for the Area API (request at [firms.modaps.eosdis.nasa.gov](https://firms.modaps.eosdis.nasa.gov/api/)).
-- OpenAI API key with realtime model access (`gpt-realtime-*`).
+- Voice assistant access is provided through the hosted relay (no local OpenAI key required).
 
 ## 🔐 Configure Environment
 
@@ -37,16 +37,13 @@ Create a `.env` file in the project root and populate:
 ```bash
 REACT_APP_MAPBOX_KEY="pk.your_mapbox_token_here"
 REACT_APP_NASA_MAP_KEY="your_firms_map_key"
-REACT_APP_OPENAI_API_KEY="sk-your_openai_key"
 ```
 
 ## 🚀 Run It Locally
 
 1. 📦 Install dependencies: `yarn install`
 2. ▶️ Start the React dev server: `yarn start` (launches `http://localhost:3000`)
-3. 🔄 (Optional) Start the realtime relay: `yarn relay`
-   - The relay reads `REACT_APP_OPENAI_API_KEY` from `.env`
-   - When running, keep `REACT_APP_OPENAI_REALTIME_URL=ws://localhost:8081`
+3. 🔊 Voice assistant sessions are brokered through our private server endpoint `/api/grow/relay`, keeping OpenAI credentials on the server.
 4. 🗞️ Switch the “LIVE” toggle to trigger fresh NASA downloads (first fetch may take a few seconds while CSV data parses).
 
 ## 🧪 Testing & Quality
@@ -74,7 +71,7 @@ REACT_APP_OPENAI_API_KEY="sk-your_openai_key"
 ## 🆘 Troubleshooting Tips
 
 - 😶 Voice button greyed out? Ensure microphone permissions are granted and the realtime model name in code matches one enabled for your key.
-- 🔑 Seeing `Missing REACT_APP_OPENAI_API_KEY`? Double-check `.env` is loaded (`yarn start` reads it at boot) and restart after changes.
+- 🔌 Voice relay errors? Confirm the app can reach `/api/grow/relay` and that the upstream OpenAI key is configured on the server.
 - 🔄 No live data? Confirm your NASA FIRMS key is active; the API limits requests per key and region.
 - 🧹 Stale map data? Clear localStorage (key `wildfire_sqlite_db_v2`) or toggle to “HISTORICAL” and back to “LIVE” to force a refresh.
 

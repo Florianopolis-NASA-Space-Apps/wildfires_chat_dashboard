@@ -4,7 +4,10 @@ import { Button } from '../button/Button';
 import { Spinner } from '../spinner/Spinner';
 import { WavRecorder, WavStreamPlayer } from '../../lib/wavtools';
 import { WavRenderer } from '../../utils/wav_renderer';
-import { RealtimeClient } from '../../lib/realtime/RealtimeClient';
+import {
+  RealtimeClient,
+  type SessionConfig,
+} from '../../lib/realtime/RealtimeClient';
 import { instructions } from '../../constants/prompts';
 import {
   countObservationsInBoundingBox,
@@ -30,8 +33,21 @@ const CONVERSATION_STARTERS = [
   '🔥 How many wildfires are in Brazil?',
   '🌧️ When was the last rain in Los Angeles?',
   "☀️ What's the weather like in Buenos Aires?",
-  '🗓️ Change the dates to March 31st - April 4th',
+  '🗓️ Change the dates to January 6th - January 8th',
 ];
+
+const PROD_BASE_URL = 'https://api.landscapesupply.app';
+const DEV_BASE_URL = 'http://localhost:3000';
+const VOICE_RELAY_ENDPOINT = `${PROD_BASE_URL}/api/grow/relay`;
+const DEFAULT_REALTIME_MODEL = 'gpt-realtime-2025-08-28';
+
+type GrowRelaySession = {
+  clientSecret: string;
+  expiresAt: number | null;
+  model: string;
+  websocketUrl: string;
+  session: Record<string, unknown>;
+};
 
 type VoiceSessionStatus =
   | 'idle'
@@ -148,13 +164,6 @@ export function RealtimeVoiceModal({
     setVoiceStatus(status);
   }, []);
 
-  const realtimeConfig = useMemo(() => {
-    const apiKey = process.env.REACT_APP_OPENAI_API_KEY?.trim();
-    const model = 'gpt-realtime-2025-08-28';
-    const endpoint = process.env.REACT_APP_OPENAI_REALTIME_URL?.trim();
-    return { apiKey, model, endpoint };
-  }, []);
-
   const voiceStatusLabel = useMemo(() => {
     if (!hasPressedStart) {
       return;
@@ -165,7 +174,7 @@ export function RealtimeVoiceModal({
       case 'authorizing':
         return 'Authorizing microphone';
       case 'connecting':
-        return 'Connecting to OpenAI';
+        return 'Connecting to Voice Assistnt';
       case 'running':
         return 'Live';
       case 'error':
@@ -667,14 +676,6 @@ export function RealtimeVoiceModal({
     ) {
       return;
     }
-    if (!realtimeConfig.apiKey) {
-      setVoiceError(
-        'Missing REACT_APP_OPENAI_API_KEY. Please provide an OpenAI realtime-capable key.'
-      );
-      updateVoiceStatus('error');
-      return;
-    }
-
     setHasPressedStart(true);
     setVoiceError(null);
     updateVoiceStatus('authorizing');
@@ -709,10 +710,77 @@ export function RealtimeVoiceModal({
       return;
     }
 
+    const sessionConfig: Partial<SessionConfig> = {
+      modalities: ['text', 'audio'],
+      instructions,
+      voice: 'verse',
+      input_audio_format: 'pcm16',
+      output_audio_format: 'pcm16',
+      input_audio_transcription: { model: 'whisper-1' },
+      turn_detection: {
+        type: 'server_vad',
+        threshold: 0.5,
+        prefix_padding_ms: 300,
+        silence_duration_ms: 200,
+      },
+    };
+
+    let relaySession: GrowRelaySession;
+    try {
+      const response = await fetch(VOICE_RELAY_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: DEFAULT_REALTIME_MODEL,
+          sessionConfig,
+        }),
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(
+          `Relay request failed (${response.status}): ${errorText}`.trim()
+        );
+      }
+      relaySession = (await response.json()) as GrowRelaySession;
+    } catch (err) {
+      await teardownVoiceSession({ resetStatus: false });
+      console.error('Failed to authorize voice session', err);
+      setVoiceError(
+        'Unable to authorize voice session. Please try again later.'
+      );
+      updateVoiceStatus('error');
+      return;
+    }
+
+    const clientSecret =
+      typeof relaySession.clientSecret === 'string'
+        ? relaySession.clientSecret.trim()
+        : '';
+    const websocketUrl =
+      typeof relaySession.websocketUrl === 'string'
+        ? relaySession.websocketUrl.trim()
+        : '';
+    const targetModel =
+      typeof relaySession.model === 'string' && relaySession.model.trim().length
+        ? relaySession.model.trim()
+        : DEFAULT_REALTIME_MODEL;
+
+    if (!clientSecret || !websocketUrl) {
+      await teardownVoiceSession({ resetStatus: false });
+      console.error('Voice relay returned an invalid session payload');
+      setVoiceError(
+        'Voice relay returned an invalid session. Please try again later.'
+      );
+      updateVoiceStatus('error');
+      return;
+    }
+
     const client = new RealtimeClient({
-      url: realtimeConfig.endpoint,
-      apiKey: realtimeConfig.apiKey,
-      model: realtimeConfig.model,
+      url: websocketUrl,
+      apiKey: clientSecret,
+      model: targetModel,
     });
     configureClientTools(client);
     clientRef.current = client;
@@ -786,20 +854,7 @@ export function RealtimeVoiceModal({
       );
     });
 
-    client.updateSession({
-      modalities: ['text', 'audio'],
-      instructions,
-      voice: 'verse',
-      input_audio_format: 'pcm16',
-      output_audio_format: 'pcm16',
-      input_audio_transcription: { model: 'whisper-1' },
-      turn_detection: {
-        type: 'server_vad',
-        threshold: 0.5,
-        prefix_padding_ms: 300,
-        silence_duration_ms: 200,
-      },
-    });
+    client.updateSession(sessionConfig);
 
     updateVoiceStatus('connecting');
     try {
@@ -810,7 +865,7 @@ export function RealtimeVoiceModal({
       setVoiceError(
         err instanceof Error
           ? err.message
-          : 'Failed to connect to the OpenAI realtime API.'
+          : 'Failed to connect to the voice relay.'
       );
       updateVoiceStatus('error');
       return;
@@ -846,7 +901,6 @@ export function RealtimeVoiceModal({
     startVisualization();
   }, [
     configureClientTools,
-    realtimeConfig,
     startVisualization,
     teardownVoiceSession,
     updateVoiceStatus,
