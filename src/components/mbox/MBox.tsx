@@ -277,12 +277,18 @@ export const MBox = ({
   }, [isMapReady, focusCoords, isExtraLargeScreen]);
 
   return (
-    <div className="h-full" style={{ backgroundColor: COLORS.sand }}>
+    <div
+      className="h-full"
+      style={{
+        background:
+          'radial-gradient(circle at 20% 20%, rgba(14, 165, 233, 0.12), rgba(15, 23, 42, 0.06) 48%, rgba(15, 23, 42, 0) 80%)',
+      }}
+    >
       <div
         id="map-container"
         ref={mapContainerRef}
         className="h-full w-full"
-        style={{ backgroundColor: COLORS.sand }}
+        style={{ backgroundColor: COLORS.slate900 }}
       />
     </div>
   );

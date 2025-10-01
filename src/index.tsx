@@ -17,6 +17,7 @@ root.render(
         height: '100%',
         width: '100%',
         position: 'relative',
+        backgroundColor: '#0f172a',
       }}
     >
       <Dashboard />

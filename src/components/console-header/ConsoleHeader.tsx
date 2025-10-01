@@ -36,10 +36,26 @@ export function ConsoleHeader({
         />
         <div>
           <div>
-            <span style={{ fontSize: 50, fontWeight: 700 }}>{'GROW'}</span>
+            <span
+              style={{
+                fontSize: 50,
+                fontWeight: 700,
+                color: 'var(--color-sky-blue)',
+                display: 'block',
+                marginBottom: -8,
+                marginLeft: -4,
+              }}
+            >
+              {'GROW'}
+            </span>
           </div>
-          <span style={{ fontSize: isLargeScreen ? 20 : 14 }}>
-            {'Global Recovery and Observation of Wildfires'}
+          <span
+            style={{
+              fontSize: isLargeScreen ? 20 : 14,
+              color: 'rgba(255, 255, 255, 0.7)',
+            }}
+          >
+            {'Global Recovery & Observation of Wildfires'}
           </span>
         </div>
       </div>
@@ -55,7 +71,7 @@ export function ConsoleHeader({
             icon={GitHub}
             iconPosition="end"
             buttonStyle="flush"
-            style={{ fontSize: 14, textAlign: 'right' }}
+            style={{ fontSize: 14, textAlign: 'right', margin: 2 }}
             label="Codebase"
             onClick={() => {
               const newWindow = window.open(
@@ -72,7 +88,7 @@ export function ConsoleHeader({
             icon={ExternalLink}
             iconPosition="end"
             buttonStyle="flush"
-            style={{ fontSize: 14, textAlign: 'right' }}
+            style={{ fontSize: 14, textAlign: 'right', margin: 2 }}
             label="Presentation"
             onClick={onOpenSlideDeck}
           />

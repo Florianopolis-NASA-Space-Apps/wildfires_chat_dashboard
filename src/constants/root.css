@@ -9,12 +9,26 @@ body {
   position: relative;
   width: 100%;
   height: 100%;
+  min-height: 100vh;
   font-family: 'Assistant', sans-serif;
   font-optical-sizing: auto;
   font-weight: 400;
   font-style: normal;
-  color: var(--color-charcoal);
-  background-color: var(--color-sand);
+  color: rgba(var(--color-white-rgb), 0.9);
+  background-color: #0f172a !important;
+  background:
+    radial-gradient(
+      circle at 20% 20%,
+      rgba(var(--color-sky-blue-rgb), 0.12) 0%,
+      rgba(var(--color-slate-950-rgb), 0.05) 42%,
+      rgba(var(--color-slate-950-rgb), 0) 68%
+    ),
+    linear-gradient(
+      160deg,
+      var(--color-slate-950) 0%,
+      var(--color-slate-900) 45%,
+      var(--color-slate-850) 100%
+    );
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -23,6 +37,8 @@ body {
   position: relative;
   width: 100%;
   height: 100%;
+  min-height: 100%;
+  background-color: #0f172a;
 }
 
 .mapboxgl-ctrl-logo,

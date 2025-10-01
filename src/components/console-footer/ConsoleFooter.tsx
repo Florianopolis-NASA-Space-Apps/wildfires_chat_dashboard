@@ -1,6 +1,5 @@
 import { ExternalLink, GitHub } from 'react-feather';
 import { Button } from '../button/Button';
-import { COLORS } from '../../constants/colors';
 import { GITHUB_REPO_URL } from '../../constants/links';
 
 interface ConsoleFooterProps {
@@ -32,8 +31,8 @@ export function ConsoleFooter({
         style={{
           fontSize: 16,
           textAlign: 'center',
-          backgroundColor: COLORS.sand,
           alignSelf: 'flex-end',
+          marginBottom: 16,
         }}
         label="Codebase"
         onClick={() => {
@@ -53,8 +52,8 @@ export function ConsoleFooter({
         style={{
           fontSize: 16,
           textAlign: 'center',
-          backgroundColor: COLORS.sand,
           alignSelf: 'flex-end',
+          marginBottom: 16,
         }}
         label={`Presentation`}
         onClick={onOpenSlideDeck}
