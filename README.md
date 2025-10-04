@@ -2,7 +2,7 @@
 
 Global Recovery and Observation of Wildfires (GROW) is an AI-assisted wildfire intelligence console created by Team I.O – Florianópolis for the 2024 NASA Space Apps Challenge. The experience blends live satellite detections, historical context, and an OpenAI-powered voice co-pilot so emergency teams can explore evolving fire activity in seconds. 🛰️🔥
 
-> 🏆 Top-10 worldwide finalist (Top 1%) in the 2024 NASA Space Apps Challenge.
+> 🏆 Top-10 worldwide finalist (Top 0.1%) in the 2024 NASA Space Apps Challenge.
 > 🎞️ Presentation slide deck: [Open in Google Slides](https://docs.google.com/presentation/d/e/2PACX-1vTezgMfwMSMOTV1xAERxRqVY9TMX-bF-45w2v5gP4jbs8Wy1t_H3u5kTwkxNfQFcA/embed?start=false&loop=false&delayms=60000)
 > 📰 NASA announcement: [Read the global winners recap](https://www.nasa.gov/learning-resources/stem-engagement-at-nasa/nasa-international-space-apps-challenge-announces-2024-global-winners/)
 

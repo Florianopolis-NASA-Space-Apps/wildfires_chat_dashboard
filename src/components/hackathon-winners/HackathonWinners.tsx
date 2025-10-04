@@ -47,7 +47,7 @@ export function HackathonWinners({
       </div>
       <div style={{ height: 10 }} />
       <div className="map-space-apps-subheading" style={{ fontWeight: 700 }}>
-        {'🏆 Top 10 out of 10,000 Worldwide Projects (Top 1%)'}
+        {'🏆 Top 10 out of 10,000 Worldwide Projects (Top 0.1%)'}
       </div>
       <div style={{ height: 10 }} />
       <div className="map-space-apps-subheading" style={{ fontWeight: 600 }}>
