@@ -36,7 +36,8 @@
     "test": "react-app-rewired test",
     "eject": "react-scripts eject",
     "zip": "zip -r realtime-api-console.zip . -x 'node_modules' 'node_modules/*' 'node_modules/**' '.git' '.git/*' '.git/**' '.DS_Store' '*/.DS_Store' 'package-lock.json' '*.zip' '*.tar.gz' '*.tar' '.env'",
-    "relay": "nodemon ./relay-server/index.js"
+    "relay": "nodemon ./relay-server/index.js",
+    "deploy": "yarn build && npx wrangler pages deploy ./build --project-name=growwildfires --branch=main"
   },
   "eslintConfig": {
     "extends": [
@@ -58,7 +59,6 @@
   },
   "devDependencies": {
     "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
-    "@types/geojson": "^7946.0.16",
     "nodemon": "^3.1.7",
     "react-app-rewired": "^2.2.1",
     "tailwindcss": "^3.4.13"
