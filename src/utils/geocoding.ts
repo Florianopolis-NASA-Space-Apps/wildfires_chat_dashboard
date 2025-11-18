@@ -3,6 +3,16 @@ import { NOMINATIM_SEARCH_URL } from '../constants/links';
 
 const NOMINATIM_CONTACT_EMAIL = 'support@archlife.org';
 
+// In-memory cache for geocoding results to speed up repeated queries
+const geocodingCache = new Map<string, BoundingBoxLookupResult>();
+const CACHE_MAX_SIZE = 100;
+const CACHE_TTL_MS = 1000 * 60 * 60; // 1 hour
+
+interface CachedResult {
+  result: BoundingBoxLookupResult;
+  timestamp: number;
+}
+
 interface NominatimPlace {
   boundingbox?: [string, string, string, string];
   display_name?: string;
@@ -61,6 +71,21 @@ export async function lookupBoundingBoxForPlace(
     throw new Error('Place query must be a non-empty string.');
   }
 
+  // Normalize query for cache lookup
+  const normalizedQuery = query.trim().toLowerCase();
+  
+  // Check cache first
+  const cached = geocodingCache.get(normalizedQuery);
+  if (cached) {
+    const age = Date.now() - (cached as any).timestamp;
+    if (age < CACHE_TTL_MS) {
+      // Return cached result for faster response
+      return (cached as any).result;
+    }
+    // Remove expired entry
+    geocodingCache.delete(normalizedQuery);
+  }
+
   const params = new URLSearchParams({
     q: query,
     format: 'jsonv2',
@@ -115,10 +140,25 @@ export async function lookupBoundingBoxForPlace(
   }
 
   const best = candidates[0];
-  return {
+  const result: BoundingBoxLookupResult = {
     boundingBox: best.parsedBox as BoundingBox,
     displayName: best.display_name || query,
     center: best.center,
     source: 'nominatim',
   };
+  
+  // Cache the result for future lookups
+  // Evict oldest entry if cache is full
+  if (geocodingCache.size >= CACHE_MAX_SIZE) {
+    const firstKey = geocodingCache.keys().next().value;
+    if (firstKey !== undefined) {
+      geocodingCache.delete(firstKey);
+    }
+  }
+  geocodingCache.set(normalizedQuery, {
+    result,
+    timestamp: Date.now(),
+  } as any);
+  
+  return result;
 }

@@ -348,11 +348,63 @@ export function RealtimeVoiceModal({
     (client: RealtimeClient) => {
       client.clearTools();
 
+      // UNIFIED FAST NAVIGATION TOOL - combines geocoding + map navigation
+      client.addTool(
+        {
+          name: 'fly_to_place',
+          description:
+            'FASTEST way to navigate the map to a location. Instantly geocodes place name and flies map there. Use this for all navigation requests.',
+          parameters: {
+            type: 'object',
+            required: ['place'],
+            properties: {
+              place: {
+                type: 'string',
+                description:
+                  'City, region, or country name (e.g., "Tokyo", "California", "Brazil").',
+              },
+            },
+            additionalProperties: false,
+          },
+        },
+        async (args: Record<string, any>) => {
+          const place =
+            typeof args?.place === 'string' ? args.place.trim() : '';
+          if (!place) {
+            throw new Error(
+              'The "place" parameter must be a non-empty string.'
+            );
+          }
+          
+          // Geocode and navigate in one operation
+          const result = await lookupBoundingBoxForPlace(place);
+          const center = result.center;
+          
+          if (center) {
+            // Immediately update map position
+            onMapPositionChange({ lat: center.lat, lng: center.lon });
+            onMarkerUpdate({
+              lat: center.lat,
+              lng: center.lon,
+              location: result.displayName,
+            });
+          }
+          
+          return {
+            success: true,
+            location: result.displayName,
+            latitude: center?.lat ?? null,
+            longitude: center?.lon ?? null,
+            bounding_box: result.boundingBox,
+          };
+        }
+      );
+
       client.addTool(
         {
           name: 'lookup_bounding_box',
           description:
-            'Resolves a place name to a geographic bounding box using OpenStreetMap Nominatim.',
+            'Resolves a place name to a geographic bounding box using OpenStreetMap Nominatim. For navigation, use fly_to_place instead.',
           parameters: {
             type: 'object',
             required: ['place'],
