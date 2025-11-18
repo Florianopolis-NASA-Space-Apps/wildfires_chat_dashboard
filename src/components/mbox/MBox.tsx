@@ -59,6 +59,7 @@ export const MBox = ({
   const popupRef = useRef<mapboxgl.Popup | null>(null);
   const rotationFrameRef = useRef<number | null>(null);
   const rotationLastTimestampRef = useRef<number | null>(null);
+  const isRotationActiveRef = useRef(false);
   const [isMapReady, setIsMapReady] = useState(false);
 
   const updateObservationCount = useCallback(
@@ -365,6 +366,7 @@ export const MBox = ({
       mapRef.current && mapRef.current.remove();
       markerRef.current = null;
       popupRef.current = null;
+      isRotationActiveRef.current = false;
       if (rotationFrameRef.current !== null) {
         window.cancelAnimationFrame(rotationFrameRef.current);
         rotationFrameRef.current = null;
@@ -385,6 +387,7 @@ export const MBox = ({
 
     const map = mapRef.current;
     const cancelRotation = () => {
+      isRotationActiveRef.current = false;
       if (rotationFrameRef.current !== null) {
         window.cancelAnimationFrame(rotationFrameRef.current);
         rotationFrameRef.current = null;
@@ -400,7 +403,8 @@ export const MBox = ({
     });
 
     const rotateStep = (timestamp: number) => {
-      if (!mapRef.current) {
+      // Check if rotation is still active before continuing
+      if (!mapRef.current || !isRotationActiveRef.current) {
         return;
       }
 
@@ -427,12 +431,16 @@ export const MBox = ({
         mapRef.current.setPitch(0);
       }
 
-      rotationFrameRef.current = window.requestAnimationFrame(rotateStep);
+      // Only schedule next frame if rotation is still active
+      if (isRotationActiveRef.current) {
+        rotationFrameRef.current = window.requestAnimationFrame(rotateStep);
+      }
     };
 
     const startRotation = () => {
       cancelRotation();
       rotationLastTimestampRef.current = null;
+      isRotationActiveRef.current = true;
       rotationFrameRef.current = window.requestAnimationFrame(rotateStep);
     };
 
@@ -559,6 +567,15 @@ export const MBox = ({
   // Keep updating the map view based on coords
   useEffect(() => {
     if (!mapRef.current || !isMapReady || !focusCoords) return;
+
+    // Cancel the auto-rotation so flyTo can work properly
+    isRotationActiveRef.current = false;
+    if (rotationFrameRef.current !== null) {
+      window.cancelAnimationFrame(rotationFrameRef.current);
+      rotationFrameRef.current = null;
+      rotationLastTimestampRef.current = null;
+    }
+
     mapRef.current.flyTo({
       center: [focusCoords.lng, focusCoords.lat],
       zoom: isLargeScreen ? 6 : 5,
