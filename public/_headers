@@ -1,0 +1,3 @@
+# Parent sites (e.g. ryan.zernach.com, zernach.com) must still use allow="microphone; autoplay" on <iframe>.
+/*
+  Permissions-Policy: microphone=*, autoplay=*

@@ -318,6 +318,27 @@ export class WavRecorder {
       }
       this.stream = await navigator.mediaDevices.getUserMedia(config);
     } catch (err) {
+      const inFrame = typeof window !== 'undefined' && window.self !== window.top;
+      const name = err && typeof err === 'object' ? err.name : '';
+      const message = err && typeof err === 'object' && err.message
+        ? String(err.message)
+        : '';
+      const policyBlocked =
+        /permission/i.test(message) ||
+        name === 'NotAllowedError' ||
+        name === 'SecurityError';
+
+      if (inFrame && policyBlocked) {
+        throw new Error(
+          'Microphone is blocked while embedded. The page that embeds this dashboard must set allow="microphone; autoplay" on its <iframe>. If the dashboard is inside nested iframes, every ancestor frame needs that allow list. Alternatively, open the dashboard in a full tab (use Open in new tab below).'
+        );
+      }
+      if (policyBlocked) {
+        throw new Error(
+          'Microphone access was denied. Allow the microphone in your browser for this site and try again.'
+        );
+      }
+      console.error('getUserMedia failed', err);
       throw new Error('Could not start media stream');
     }
 

@@ -70,6 +70,7 @@ REACT_APP_NASA_MAP_KEY="your_firms_map_key"
 
 ## 🆘 Troubleshooting Tips
 
+- 🖼️ **Embedding in an iframe (e.g. ryan.zernach.com, zernach.com):** Browsers block the microphone in cross-origin iframes unless the **parent page** grants it. Add **`allow="microphone; autoplay"`** on the `<iframe>` (both are needed for capture and smooth audio playback). Example: `<iframe src="https://your-dashboard-host" allow="microphone; autoplay" title="GROW dashboard"></iframe>`. **Nested iframes:** each wrapping frame must include the same `allow` values, or the innermost document still cannot use the mic. As a workaround, users can open the dashboard in a new tab from the voice panel.
 - 😶 Voice button greyed out? Ensure microphone permissions are granted and the realtime model name in code matches one enabled for your key.
 - 🔌 Voice relay errors? Confirm the app can reach `/api/grow/relay` and that the upstream OpenAI key is configured on the server.
 - 🔄 No live data? Confirm your NASA FIRMS key is active; the API limits requests per key and region.

@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, Mic, RefreshCw, Square, X } from 'react-feather';
+import {
+  AlertTriangle,
+  ExternalLink,
+  Mic,
+  RefreshCw,
+  Square,
+  X,
+} from 'react-feather';
 import { Button } from '../button/Button';
 import { Spinner } from '../spinner/Spinner';
 import { WavRecorder, WavStreamPlayer } from '../../lib/wavtools';
@@ -22,6 +29,7 @@ import {
 } from '../../utils/dates';
 import type { IMapCoords, MapMarkerDetails } from '../mbox/MBox';
 import { COLORS } from '../../constants/colors';
+import { isEmbeddedInIframe } from '../../utils/iframeEmbed';
 import {
   OPEN_METEO_ARCHIVE_URL,
   OPEN_METEO_FORECAST_URL,
@@ -227,6 +235,23 @@ export function RealtimeVoiceModal({
     voiceStatus === 'running' ||
     voiceStatus === 'connecting' ||
     voiceStatus === 'authorizing';
+
+  const showOpenDashboardInNewTab = useMemo(() => {
+    if (!voiceError) {
+      return false;
+    }
+    if (voiceError.includes('Microphone is blocked while embedded')) {
+      return true;
+    }
+    if (!isEmbeddedInIframe()) {
+      return false;
+    }
+    return /microphone|media stream|voice/i.test(voiceError);
+  }, [voiceError]);
+
+  const openDashboardInNewTab = useCallback(() => {
+    window.open(window.location.href, '_blank', 'noopener,noreferrer');
+  }, []);
 
   const clearVisualization = useCallback(() => {
     if (animationRef.current) {
@@ -1145,8 +1170,20 @@ export function RealtimeVoiceModal({
       </div>
       {voiceError && (
         <div className="realtime-voice-modal__error">
-          <AlertTriangle size={16} />
-          <span>{voiceError}</span>
+          <div className="realtime-voice-modal__error-main">
+            <AlertTriangle size={16} aria-hidden />
+            <span>{voiceError}</span>
+          </div>
+          {showOpenDashboardInNewTab ? (
+            <Button
+              type="button"
+              icon={ExternalLink}
+              label="Open dashboard in new tab"
+              buttonStyle="action"
+              className="realtime-voice-modal__error-action"
+              onClick={openDashboardInNewTab}
+            />
+          ) : null}
         </div>
       )}
       {isLargeScreen && (
