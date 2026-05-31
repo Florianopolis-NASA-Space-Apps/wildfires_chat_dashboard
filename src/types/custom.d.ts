@@ -44,6 +44,7 @@ declare module 'sql.js' {
 
   interface InitConfig {
     locateFile?: (file: string) => string;
+    wasmBinary?: Uint8Array;
   }
 
   export default function initSqlJs(config?: InitConfig): Promise<SqlJsStatic>;

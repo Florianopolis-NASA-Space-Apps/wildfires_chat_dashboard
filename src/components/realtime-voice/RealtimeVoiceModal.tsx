@@ -14,8 +14,8 @@ import { WavRenderer } from '../../utils/wav_renderer';
 import {
   RealtimeClient,
   type SessionConfig,
+  type RealtimeToolDefinition,
 } from '../../lib/realtime/RealtimeClient';
-import { instructions } from '../../constants/prompts';
 import {
   countObservationsInBoundingBox,
   type BoundingBoxObservationStats,
@@ -44,16 +44,143 @@ const CONVERSATION_STARTERS = [
   '🗓️ Change the dates to January 6th - January 8th',
 ];
 
-const PROD_BASE_URL = 'https://api.landscapesupply.app';
-const DEV_BASE_URL = 'http://localhost:3000';
+const PROD_BASE_URL = 'http://localhost:3000';
+const DEV_BASE_URL = 'http://localhost:4317';
 const VOICE_RELAY_ENDPOINT = `${PROD_BASE_URL}/api/grow/relay`;
-const DEFAULT_REALTIME_MODEL = 'gpt-realtime-2025-08-28';
 const RELAY_SESSION_EXPIRY_BUFFER_MS = 5_000;
+const INTERACTIVITY_TOOL_CALL_RULES = [
+  'Tool call policy:',
+  '- For dashboard UI changes, prefer calling control_dashboard_interactivity.',
+  '- If the user asks to change or move map location, call fly_to_place for named places or apply_map_location for known coordinates before replying.',
+  '- If the user asks to change wildfire dates/timeframe, call apply_date_range before replying.',
+  '- After a dashboard tool succeeds, briefly tell the user the request was received and applied.',
+  '- Do not claim UI was updated unless the tool call succeeded.',
+].join('\n');
+
+const FLY_TO_PLACE_TOOL_DEFINITION: RealtimeToolDefinition = {
+  name: 'fly_to_place',
+  description:
+    'FASTEST way to navigate the map to a location. Instantly geocodes place name and flies map there. Use this for all navigation requests.',
+  parameters: {
+    type: 'object',
+    required: ['place'],
+    properties: {
+      place: {
+        type: 'string',
+        description:
+          'City, region, or country name (e.g., "Tokyo", "California", "Brazil").',
+      },
+      location: {
+        type: 'string',
+        description: 'Alternate place field.',
+      },
+      destination: {
+        type: 'string',
+        description: 'Alternate place field.',
+      },
+      query: {
+        type: 'string',
+        description: 'Alternate place field.',
+      },
+    },
+    additionalProperties: false,
+  },
+};
+
+const APPLY_MAP_LOCATION_TOOL_DEFINITION: RealtimeToolDefinition = {
+  name: 'apply_map_location',
+  description:
+    'Moves the wildfire dashboard map to exact coordinates. Use when latitude and longitude are already known.',
+  parameters: {
+    type: 'object',
+    required: ['lat', 'lng'],
+    properties: {
+      lat: { type: 'number', description: 'Latitude' },
+      lng: { type: 'number', description: 'Longitude' },
+      latitude: { type: 'number', description: 'Alternate latitude field' },
+      longitude: { type: 'number', description: 'Alternate longitude field' },
+      lon: { type: 'number', description: 'Alternate longitude field' },
+      location: {
+        type: 'string',
+        description: 'Optional label for the map marker.',
+      },
+      place: {
+        type: 'string',
+        description: 'Optional label for the map marker.',
+      },
+    },
+    additionalProperties: false,
+  },
+};
+
+const APPLY_DATE_RANGE_TOOL_DEFINITION: RealtimeToolDefinition = {
+  name: 'apply_date_range',
+  description:
+    'Updates the wildfire observation date range shown in the dashboard. Prefer YYYY-MM-DD values but natural language dates are also accepted.',
+  parameters: {
+    type: 'object',
+    required: ['start_date', 'end_date'],
+    properties: {
+      start_date: {
+        type: 'string',
+        description:
+          'Inclusive start date in YYYY-MM-DD format (e.g., 2025-01-06).',
+      },
+      end_date: {
+        type: 'string',
+        description:
+          'Inclusive end date in YYYY-MM-DD format (e.g., 2025-01-10).',
+      },
+      start: { type: 'string', description: 'Alternate key for start date.' },
+      end: { type: 'string', description: 'Alternate key for end date.' },
+      startDate: {
+        type: 'string',
+        description: 'Alternate key for start date.',
+      },
+      endDate: {
+        type: 'string',
+        description: 'Alternate key for end date.',
+      },
+      from: { type: 'string', description: 'Alternate key for start date.' },
+      to: { type: 'string', description: 'Alternate key for end date.' },
+      range: {
+        type: 'string',
+        description:
+          'Single string range, such as "2025-01-06 to 2025-01-08" or "January 6 - January 8".',
+      },
+      timeframe: {
+        type: 'string',
+        description: 'Alternate single string date range.',
+      },
+      date_range: {
+        type: 'object',
+        description: 'Nested date range object. Can contain start/end style keys.',
+        additionalProperties: true,
+      },
+      dateRange: {
+        type: 'object',
+        description: 'Nested date range object. Can contain start/end style keys.',
+        additionalProperties: true,
+      },
+      dates: {
+        type: 'object',
+        description: 'Nested dates object. Can contain start/end style keys.',
+        additionalProperties: true,
+      },
+    },
+    additionalProperties: false,
+  },
+};
+
+const REQUIRED_INTERACTIVITY_TOOL_DEFINITIONS: RealtimeToolDefinition[] = [
+  FLY_TO_PLACE_TOOL_DEFINITION,
+  APPLY_MAP_LOCATION_TOOL_DEFINITION,
+  APPLY_DATE_RANGE_TOOL_DEFINITION,
+];
 
 type GrowRelaySession = {
   clientSecret: string;
   expiresAt: number | null;
-  model: string;
   websocketUrl: string;
   session: Record<string, unknown>;
 };
@@ -68,7 +195,7 @@ type VoiceSessionStatus =
 interface RealtimeLogEntry {
   time: string;
   source: 'client' | 'server';
-  event: { type?: string; [key: string]: unknown };
+  event: { type?: string;[key: string]: unknown };
 }
 
 interface RealtimeVoiceModalProps {
@@ -116,6 +243,197 @@ function parseBoundingBoxArg(arg: unknown): BoundingBox {
     east,
     west,
   };
+}
+
+function getToolArgValue({
+  args,
+  keys,
+}: {
+  args: Record<string, unknown> | null | undefined;
+  keys: string[];
+}): unknown {
+  if (!args) {
+    return undefined;
+  }
+  for (const key of keys) {
+    if (Object.prototype.hasOwnProperty.call(args, key)) {
+      return args[key];
+    }
+  }
+  return undefined;
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null;
+  }
+  return value as Record<string, unknown>;
+}
+
+function getStringToolArg({
+  args,
+  keys,
+}: {
+  args: Record<string, unknown> | null | undefined;
+  keys: string[];
+}): string | null {
+  const raw = getToolArgValue({ args, keys });
+  if (typeof raw !== 'string') {
+    return null;
+  }
+  const trimmed = raw.trim();
+  return trimmed.length ? trimmed : null;
+}
+
+function getDateRangeInputs({
+  args,
+}: {
+  args: Record<string, unknown>;
+}): {
+  startInput: unknown;
+  endInput: unknown;
+} {
+  const rangeContainer = asRecord(
+    getToolArgValue({
+      args,
+      keys: ['date_range', 'dateRange', 'dates'],
+    })
+  );
+
+  const startInput =
+    getToolArgValue({
+      args,
+      keys: [
+        'start_date',
+        'startDate',
+        'start',
+        'from',
+        'begin',
+        'start_at',
+        'startAt',
+      ],
+    }) ??
+    getToolArgValue({
+      args: rangeContainer,
+      keys: [
+        'start_date',
+        'startDate',
+        'start',
+        'from',
+        'begin',
+        'start_at',
+        'startAt',
+      ],
+    });
+
+  const endInput =
+    getToolArgValue({
+      args,
+      keys: ['end_date', 'endDate', 'end', 'to', 'until', 'end_at', 'endAt'],
+    }) ??
+    getToolArgValue({
+      args: rangeContainer,
+      keys: ['end_date', 'endDate', 'end', 'to', 'until', 'end_at', 'endAt'],
+    });
+
+  if (startInput !== undefined && endInput !== undefined) {
+    return { startInput, endInput };
+  }
+
+  const rangeText = getStringToolArg({
+    args,
+    keys: ['range', 'timeframe', 'date_span', 'dateSpan'],
+  });
+  if (!rangeText) {
+    return { startInput, endInput };
+  }
+
+  const parts = rangeText
+    .split(/\s+(?:to|through|until)\s+|\s*[-–—]\s*/i)
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0);
+
+  if (parts.length >= 2) {
+    return { startInput: parts[0], endInput: parts[1] };
+  }
+
+  return { startInput, endInput };
+}
+
+function parseFlexibleDateArg({
+  value,
+  label,
+}: {
+  value: unknown;
+  label: string;
+}): Date {
+  if (typeof value !== 'string' || !value.trim().length) {
+    throw new Error(`${label} must be a non-empty date string.`);
+  }
+
+  const raw = value.trim();
+  try {
+    return parseDateArg(raw, label);
+  } catch (_error) {
+    const normalized = raw.replace(/\b(\d{1,2})(st|nd|rd|th)\b/gi, '$1');
+    const parsedMs = Date.parse(normalized);
+    if (Number.isNaN(parsedMs)) {
+      throw new Error(
+        `${label} must be a valid date. Use YYYY-MM-DD when possible.`
+      );
+    }
+    const parsed = new Date(parsedMs);
+    parsed.setHours(0, 0, 0, 0);
+    return parsed;
+  }
+}
+
+function getPlaceFromToolArgs({
+  args,
+}: {
+  args: Record<string, unknown>;
+}): string | null {
+  const directPlace = getStringToolArg({
+    args,
+    keys: [
+      'place',
+      'location',
+      'destination',
+      'query',
+      'city',
+      'region',
+      'country',
+      'name',
+    ],
+  });
+  if (directPlace) {
+    return directPlace;
+  }
+
+  const nestedLocation = asRecord(
+    getToolArgValue({
+      args,
+      keys: ['location_data', 'locationData'],
+    })
+  );
+  return getStringToolArg({
+    args: nestedLocation,
+    keys: ['place', 'location', 'name', 'label'],
+  });
+}
+
+function formatUnknownForLog(value: unknown): string | number | boolean | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return value;
+  }
+  try {
+    return JSON.stringify(value);
+  } catch (_error) {
+    return String(value);
+  }
 }
 
 function summarizeBoundingBox(bounds: BoundingBox, label?: string): string {
@@ -168,6 +486,55 @@ function normalizeExpirationTimestamp(raw: unknown): number | null {
   return null;
 }
 
+function mergeSessionInstructions({
+  baseInstructions,
+  appendedInstructions,
+}: {
+  baseInstructions: string | undefined;
+  appendedInstructions: string;
+}): string {
+  const base = typeof baseInstructions === 'string' ? baseInstructions.trim() : '';
+  if (!base.length) {
+    return appendedInstructions;
+  }
+  if (base.includes(appendedInstructions)) {
+    return base;
+  }
+  return `${base}\n\n${appendedInstructions}`;
+}
+
+function cloneRealtimeToolDefinition(
+  tool: RealtimeToolDefinition
+): SessionConfig['tools'][number] {
+  return {
+    type: 'function',
+    name: tool.name,
+    description: tool.description,
+    parameters: tool.parameters ? { ...tool.parameters } : undefined,
+  };
+}
+
+function buildRequiredInteractivityToolDefinitions(): SessionConfig['tools'] {
+  return REQUIRED_INTERACTIVITY_TOOL_DEFINITIONS.map(cloneRealtimeToolDefinition);
+}
+
+function isRelayToolDefinition(value: unknown): value is SessionConfig['tools'][number] {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false;
+  }
+  const record = value as Record<string, unknown>;
+  return (
+    record.type === 'function' &&
+    typeof record.name === 'string' &&
+    record.name.trim().length > 0 &&
+    (record.description === undefined || typeof record.description === 'string') &&
+    (record.parameters === undefined ||
+      (typeof record.parameters === 'object' &&
+        record.parameters !== null &&
+        !Array.isArray(record.parameters)))
+  );
+}
+
 function hasExpirationElapsed(
   expiresAt: number | null,
   bufferMs: number = 0
@@ -176,6 +543,88 @@ function hasExpirationElapsed(
     return false;
   }
   return Date.now() >= expiresAt - bufferMs;
+}
+
+function extractRelaySessionConfig(
+  session: Record<string, unknown>
+): Partial<SessionConfig> {
+  const config: Partial<SessionConfig> = {};
+  if (
+    Array.isArray(session.modalities) &&
+    session.modalities.every((entry) => typeof entry === 'string')
+  ) {
+    config.modalities = session.modalities as SessionConfig['modalities'];
+  }
+  if (typeof session.instructions === 'string') {
+    config.instructions = session.instructions;
+  }
+  if (typeof session.voice === 'string') {
+    config.voice = session.voice;
+  }
+  if (
+    session.input_audio_format === 'pcm16' ||
+    session.input_audio_format === 'g711_ulaw' ||
+    session.input_audio_format === 'g711_alaw'
+  ) {
+    config.input_audio_format = session.input_audio_format;
+  }
+  if (
+    session.output_audio_format === 'pcm16' ||
+    session.output_audio_format === 'g711_ulaw' ||
+    session.output_audio_format === 'g711_alaw'
+  ) {
+    config.output_audio_format = session.output_audio_format;
+  }
+  if (
+    session.input_audio_transcription === null ||
+    (typeof session.input_audio_transcription === 'object' &&
+      session.input_audio_transcription !== null &&
+      !Array.isArray(session.input_audio_transcription))
+  ) {
+    config.input_audio_transcription =
+      session.input_audio_transcription as SessionConfig['input_audio_transcription'];
+  }
+  if (
+    session.turn_detection === null ||
+    (typeof session.turn_detection === 'object' &&
+      session.turn_detection !== null &&
+      !Array.isArray(session.turn_detection))
+  ) {
+    config.turn_detection = session.turn_detection as SessionConfig['turn_detection'];
+  }
+  if (typeof session.temperature === 'number' && Number.isFinite(session.temperature)) {
+    config.temperature = session.temperature;
+  }
+  if (
+    session.max_response_output_tokens === 'inf' ||
+    (typeof session.max_response_output_tokens === 'number' &&
+      Number.isFinite(session.max_response_output_tokens))
+  ) {
+    config.max_response_output_tokens =
+      session.max_response_output_tokens as SessionConfig['max_response_output_tokens'];
+  }
+  if (
+    session.tool_choice === 'auto' ||
+    session.tool_choice === 'none' ||
+    session.tool_choice === 'required' ||
+    (typeof session.tool_choice === 'object' &&
+      session.tool_choice !== null &&
+      !Array.isArray(session.tool_choice))
+  ) {
+    config.tool_choice = session.tool_choice as SessionConfig['tool_choice'];
+  }
+  if (Array.isArray(session.tools)) {
+    const tools = session.tools.filter(isRelayToolDefinition).map((tool) => ({
+      ...tool,
+      name: tool.name.trim(),
+      description: tool.description?.trim(),
+      parameters: tool.parameters ? { ...tool.parameters } : undefined,
+    }));
+    if (tools.length) {
+      config.tools = tools;
+    }
+  }
+  return config;
 }
 
 export function RealtimeVoiceModal({
@@ -205,6 +654,30 @@ export function RealtimeVoiceModal({
   const handlerRefs = useRef<
     Array<{ event: string; handler: (event: any) => void }>
   >([]);
+
+  const logToolTrace = useCallback(
+    ({
+      stage,
+      details,
+      level = 'info',
+    }: {
+      stage: string;
+      details?: Record<string, unknown>;
+      level?: 'info' | 'warn' | 'error';
+    }) => {
+      const payload = details ?? {};
+      if (level === 'error') {
+        console.error('[VoiceToolTrace:UI]', stage, payload);
+        return;
+      }
+      if (level === 'warn') {
+        console.warn('[VoiceToolTrace:UI]', stage, payload);
+        return;
+      }
+      console.info('[VoiceToolTrace:UI]', stage, payload);
+    },
+    []
+  );
 
   const updateVoiceStatus = useCallback((status: VoiceSessionStatus) => {
     voiceStatusRef.current = status;
@@ -369,59 +842,250 @@ export function RealtimeVoiceModal({
     [clearEventHandlers, clearVisualization, updateVoiceStatus]
   );
 
+  const applyMapLocation = useCallback(
+    ({
+      lat,
+      lng,
+      location,
+    }: {
+      lat: number;
+      lng: number;
+      location?: string;
+    }) => {
+      logToolTrace({
+        stage: 'ui.apply_map_location',
+        details: { lat, lng, location: location ?? null },
+      });
+      onMapPositionChange({ lat, lng });
+      onMarkerUpdate({
+        lat,
+        lng,
+        location:
+          typeof location === 'string' && location.trim().length
+            ? location.trim()
+            : undefined,
+      });
+    },
+    [logToolTrace, onMapPositionChange, onMarkerUpdate]
+  );
+
+  const flyToPlace = useCallback(
+    async ({ place }: { place: string }) => {
+      const trimmedPlace = place.trim();
+      logToolTrace({
+        stage: 'ui.fly_to_place.received',
+        details: { place: trimmedPlace || null },
+      });
+      if (!trimmedPlace) {
+        logToolTrace({
+          stage: 'ui.fly_to_place.rejected',
+          level: 'warn',
+          details: { reason: 'missing_place' },
+        });
+        throw new Error('The "place" parameter must be a non-empty string.');
+      }
+
+      const result = await lookupBoundingBoxForPlace(trimmedPlace);
+      const fallbackCenter = {
+        lat: (result.boundingBox.north + result.boundingBox.south) / 2,
+        lng: (result.boundingBox.east + result.boundingBox.west) / 2,
+      };
+      const resolvedCenter = result.center
+        ? { lat: result.center.lat, lng: result.center.lon }
+        : fallbackCenter;
+
+      applyMapLocation({
+        lat: resolvedCenter.lat,
+        lng: resolvedCenter.lng,
+        location: result.displayName,
+      });
+      logToolTrace({
+        stage: 'ui.fly_to_place.applied',
+        details: {
+          input_place: trimmedPlace,
+          resolved_location: result.displayName,
+          lat: resolvedCenter.lat,
+          lng: resolvedCenter.lng,
+        },
+      });
+
+      return {
+        success: true,
+        location: result.displayName,
+        latitude: resolvedCenter.lat,
+        longitude: resolvedCenter.lng,
+        bounding_box: result.boundingBox,
+      };
+    },
+    [applyMapLocation, logToolTrace]
+  );
+
+  const applyObservationDateRange = useCallback(
+    ({
+      startInput,
+      endInput,
+    }: {
+      startInput: unknown;
+      endInput: unknown;
+    }) => {
+      logToolTrace({
+        stage: 'ui.apply_date_range.received',
+        details: {
+          start_input: formatUnknownForLog(startInput),
+          end_input: formatUnknownForLog(endInput),
+        },
+      });
+      const startDate = parseFlexibleDateArg({
+        value: startInput,
+        label: 'start_date',
+      });
+      const endDate = parseFlexibleDateArg({
+        value: endInput,
+        label: 'end_date',
+      });
+
+      if (endDate < startDate) {
+        logToolTrace({
+          stage: 'ui.apply_date_range.rejected',
+          level: 'warn',
+          details: {
+            reason: 'end_before_start',
+            start_date: formatDateForResponse(startDate),
+            end_date: formatDateForResponse(endDate),
+          },
+        });
+        throw new Error('end_date must be on or after start_date.');
+      }
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (endDate > today) {
+        logToolTrace({
+          stage: 'ui.apply_date_range.rejected',
+          level: 'warn',
+          details: {
+            reason: 'end_in_future',
+            end_date: formatDateForResponse(endDate),
+          },
+        });
+        throw new Error('end_date cannot be in the future.');
+      }
+
+      onDateRangeChange({ startDate, endDate });
+      logToolTrace({
+        stage: 'ui.apply_date_range.applied',
+        details: {
+          start_date: formatDateForResponse(startDate),
+          end_date: formatDateForResponse(endDate),
+        },
+      });
+
+      return {
+        start_date: formatDateForResponse(startDate),
+        end_date: formatDateForResponse(endDate),
+        total_days:
+          Math.floor(
+            (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
+          ) + 1,
+      };
+    },
+    [logToolTrace, onDateRangeChange]
+  );
+
   const configureClientTools = useCallback(
     (client: RealtimeClient) => {
       client.clearTools();
 
-      // UNIFIED FAST NAVIGATION TOOL - combines geocoding + map navigation
+      client.addTool(
+        APPLY_MAP_LOCATION_TOOL_DEFINITION,
+        async (args: Record<string, any>) => {
+          const latitude = ensureNumber(
+            getToolArgValue({
+              args,
+              keys: ['lat', 'latitude'],
+            }),
+            'lat'
+          );
+          const longitude = ensureNumber(
+            getToolArgValue({
+              args,
+              keys: ['lng', 'longitude', 'lon'],
+            }),
+            'lng'
+          );
+          const locationLabel = getStringToolArg({
+            args,
+            keys: ['location', 'place'],
+          });
+          applyMapLocation({
+            lat: latitude,
+            lng: longitude,
+            location: locationLabel ?? undefined,
+          });
+          return {
+            success: true,
+            latitude,
+            longitude,
+            location: locationLabel ?? null,
+          };
+        }
+      );
+
+      client.addTool(
+        APPLY_DATE_RANGE_TOOL_DEFINITION,
+        async (args: Record<string, any>) => {
+          const { startInput, endInput } = getDateRangeInputs({ args });
+          const result = applyObservationDateRange({
+            startInput,
+            endInput,
+          });
+          return {
+            success: true,
+            ...result,
+          };
+        }
+      );
+
+      client.addTool(
+        FLY_TO_PLACE_TOOL_DEFINITION,
+        async (args: Record<string, any>) => {
+          const place = getPlaceFromToolArgs({ args });
+          return flyToPlace({ place: place ?? '' });
+        }
+      );
+
       client.addTool(
         {
-          name: 'fly_to_place',
+          name: 'set_map_location',
           description:
-            'FASTEST way to navigate the map to a location. Instantly geocodes place name and flies map there. Use this for all navigation requests.',
+            'Sets the map location from a city, region, country, or landmark name.',
           parameters: {
             type: 'object',
-            required: ['place'],
             properties: {
               place: {
                 type: 'string',
                 description:
-                  'City, region, or country name (e.g., "Tokyo", "California", "Brazil").',
+                  'Place name for map navigation, such as "Chile", "Austin", or "Sydney".',
+              },
+              location: {
+                type: 'string',
+                description: 'Alternate place field.',
+              },
+              destination: {
+                type: 'string',
+                description: 'Alternate place field.',
+              },
+              query: {
+                type: 'string',
+                description: 'Alternate place field.',
               },
             },
             additionalProperties: false,
           },
         },
         async (args: Record<string, any>) => {
-          const place =
-            typeof args?.place === 'string' ? args.place.trim() : '';
-          if (!place) {
-            throw new Error(
-              'The "place" parameter must be a non-empty string.'
-            );
-          }
-          
-          // Geocode and navigate in one operation
-          const result = await lookupBoundingBoxForPlace(place);
-          const center = result.center;
-          
-          if (center) {
-            // Immediately update map position
-            onMapPositionChange({ lat: center.lat, lng: center.lon });
-            onMarkerUpdate({
-              lat: center.lat,
-              lng: center.lon,
-              location: result.displayName,
-            });
-          }
-          
-          return {
-            success: true,
-            location: result.displayName,
-            latitude: center?.lat ?? null,
-            longitude: center?.lon ?? null,
-            bounding_box: result.boundingBox,
-          };
+          const place = getPlaceFromToolArgs({ args });
+          return flyToPlace({ place: place ?? '' });
         }
       );
 
@@ -527,10 +1191,9 @@ export function RealtimeVoiceModal({
         {
           name: 'set_observation_date_range',
           description:
-            'Updates the wildfire observation date range shown in the dashboard. Use this when the user specifies a start and end date.',
+            'Updates the wildfire observation date range shown in the dashboard. Prefer YYYY-MM-DD values but natural language dates are also accepted.',
           parameters: {
             type: 'object',
-            required: ['start_date', 'end_date'],
             properties: {
               start_date: {
                 type: 'string',
@@ -542,34 +1205,210 @@ export function RealtimeVoiceModal({
                 description:
                   'Inclusive end date in YYYY-MM-DD format (e.g., 2025-01-10).',
               },
+              start: {
+                type: 'string',
+                description: 'Alternate key for start date.',
+              },
+              end: {
+                type: 'string',
+                description: 'Alternate key for end date.',
+              },
+              startDate: {
+                type: 'string',
+                description: 'Alternate key for start date.',
+              },
+              endDate: {
+                type: 'string',
+                description: 'Alternate key for end date.',
+              },
+              from: {
+                type: 'string',
+                description: 'Alternate key for start date.',
+              },
+              to: {
+                type: 'string',
+                description: 'Alternate key for end date.',
+              },
+              range: {
+                type: 'string',
+                description:
+                  'Single string range, such as "2025-01-06 to 2025-01-08" or "January 6 - January 8".',
+              },
+              timeframe: {
+                type: 'string',
+                description: 'Alternate single string date range.',
+              },
+              date_range: {
+                type: 'object',
+                description:
+                  'Nested date range object. Can contain start/end style keys.',
+                additionalProperties: true,
+              },
+              dateRange: {
+                type: 'object',
+                description:
+                  'Nested date range object. Can contain start/end style keys.',
+                additionalProperties: true,
+              },
+              dates: {
+                type: 'object',
+                description:
+                  'Nested dates object. Can contain start/end style keys.',
+                additionalProperties: true,
+              },
             },
             additionalProperties: false,
           },
         },
         async (args: Record<string, any>) => {
-          const startDate = parseDateArg(args?.start_date, 'start_date');
-          const endDate = parseDateArg(args?.end_date, 'end_date');
+          const { startInput, endInput } = getDateRangeInputs({ args });
+          return applyObservationDateRange({
+            startInput,
+            endInput,
+          });
+        }
+      );
 
-          if (endDate < startDate) {
-            throw new Error('end_date must be on or after start_date.');
+      client.addTool(
+        {
+          name: 'control_dashboard_interactivity',
+          description:
+            'Handles UI interactivity requests. Use this for changing map location and/or wildfire date range in one call.',
+          parameters: {
+            type: 'object',
+            properties: {
+              place: { type: 'string', description: 'Location to move the map to.' },
+              location: {
+                type: 'string',
+                description: 'Alternate place field.',
+              },
+              destination: {
+                type: 'string',
+                description: 'Alternate place field.',
+              },
+              lat: { type: 'number', description: 'Latitude' },
+              lng: { type: 'number', description: 'Longitude' },
+              latitude: { type: 'number', description: 'Alternate latitude field' },
+              longitude: {
+                type: 'number',
+                description: 'Alternate longitude field',
+              },
+              lon: { type: 'number', description: 'Alternate longitude field' },
+              start_date: { type: 'string', description: 'Start date value.' },
+              end_date: { type: 'string', description: 'End date value.' },
+              start: { type: 'string', description: 'Alternate start date value.' },
+              end: { type: 'string', description: 'Alternate end date value.' },
+              startDate: {
+                type: 'string',
+                description: 'Alternate start date value.',
+              },
+              endDate: {
+                type: 'string',
+                description: 'Alternate end date value.',
+              },
+              from: { type: 'string', description: 'Alternate start date value.' },
+              to: { type: 'string', description: 'Alternate end date value.' },
+              range: { type: 'string', description: 'Combined date range string.' },
+              timeframe: {
+                type: 'string',
+                description: 'Alternate combined date range string.',
+              },
+              date_range: {
+                type: 'object',
+                description: 'Nested date range object.',
+                additionalProperties: true,
+              },
+              dateRange: {
+                type: 'object',
+                description: 'Nested date range object.',
+                additionalProperties: true,
+              },
+              dates: {
+                type: 'object',
+                description: 'Nested dates object.',
+                additionalProperties: true,
+              },
+            },
+            additionalProperties: false,
+          },
+        },
+        async (args: Record<string, any>) => {
+          const results: Record<string, unknown> = {};
+
+          const place = getPlaceFromToolArgs({ args });
+          const latitudeRaw = getToolArgValue({
+            args,
+            keys: ['lat', 'latitude'],
+          });
+          const longitudeRaw = getToolArgValue({
+            args,
+            keys: ['lng', 'longitude', 'lon'],
+          });
+          const hasCoordinates =
+            latitudeRaw !== undefined || longitudeRaw !== undefined;
+          const hasDateHints =
+            getToolArgValue({
+              args,
+              keys: [
+                'start_date',
+                'startDate',
+                'start',
+                'from',
+                'end_date',
+                'endDate',
+                'end',
+                'to',
+                'range',
+                'timeframe',
+                'date_range',
+                'dateRange',
+                'dates',
+              ],
+            }) !== undefined;
+
+          if (place) {
+            results.map = await flyToPlace({ place });
+          } else if (hasCoordinates) {
+            if (latitudeRaw === undefined || longitudeRaw === undefined) {
+              throw new Error(
+                'Both latitude and longitude are required when using map coordinates.'
+              );
+            }
+            const latitude = ensureNumber(latitudeRaw, 'lat');
+            const longitude = ensureNumber(longitudeRaw, 'lng');
+            const locationLabel = getStringToolArg({
+              args,
+              keys: ['location', 'place', 'destination'],
+            });
+            applyMapLocation({
+              lat: latitude,
+              lng: longitude,
+              location: locationLabel ?? undefined,
+            });
+            results.map = {
+              latitude,
+              longitude,
+              location: locationLabel ?? null,
+            };
           }
 
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-          if (endDate > today) {
-            throw new Error('end_date cannot be in the future.');
+          if (hasDateHints) {
+            const { startInput, endInput } = getDateRangeInputs({ args });
+            results.date_range = applyObservationDateRange({
+              startInput,
+              endInput,
+            });
           }
 
-          onDateRangeChange({ startDate, endDate });
+          if (!Object.keys(results).length) {
+            throw new Error(
+              'No interactive update data provided. Include a place, coordinates, or date range values.'
+            );
+          }
 
           return {
-            start_date: formatDateForResponse(startDate),
-            end_date: formatDateForResponse(endDate),
-            total_days:
-              Math.floor(
-                (endDate.getTime() - startDate.getTime()) /
-                  (1000 * 60 * 60 * 24)
-              ) + 1,
+            success: true,
+            ...results,
           };
         }
       );
@@ -584,30 +1423,51 @@ export function RealtimeVoiceModal({
             properties: {
               lat: { type: 'number', description: 'Latitude' },
               lng: { type: 'number', description: 'Longitude' },
+              latitude: { type: 'number', description: 'Alternate latitude field' },
+              longitude: {
+                type: 'number',
+                description: 'Alternate longitude field',
+              },
+              lon: { type: 'number', description: 'Alternate longitude field' },
               location: {
                 type: 'string',
                 description: 'Label for the location',
               },
+              place: {
+                type: 'string',
+                description: 'Optional place label if location is omitted.',
+              },
             },
-            required: ['lat', 'lng', 'location'],
+            required: ['lat', 'lng'],
             additionalProperties: false,
           },
         },
         async (args: Record<string, any>) => {
-          const latitude = ensureNumber(args?.lat, 'lat');
-          const longitude = ensureNumber(args?.lng, 'lng');
-          const location = args?.location;
+          const latitude = ensureNumber(
+            getToolArgValue({
+              args,
+              keys: ['lat', 'latitude'],
+            }),
+            'lat'
+          );
+          const longitude = ensureNumber(
+            getToolArgValue({
+              args,
+              keys: ['lng', 'longitude', 'lon'],
+            }),
+            'lng'
+          );
+          const location = args?.location ?? args?.place;
           const label =
             typeof location === 'string' && location.trim().length
               ? location.trim()
               : 'Selected location';
 
-          onMarkerUpdate({
+          applyMapLocation({
             lat: latitude,
             lng: longitude,
             location: label,
           });
-          onMapPositionChange({ lat: latitude, lng: longitude });
 
           const url = `${OPEN_METEO_FORECAST_URL}?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,wind_speed_10m`;
           const response = await fetch(url);
@@ -620,20 +1480,20 @@ export function RealtimeVoiceModal({
 
           const temperatureReading =
             typeof json?.current?.temperature_2m === 'number' &&
-            typeof json?.current_units?.temperature_2m === 'string'
+              typeof json?.current_units?.temperature_2m === 'string'
               ? {
-                  value: json.current.temperature_2m,
-                  units: json.current_units.temperature_2m,
-                }
+                value: json.current.temperature_2m,
+                units: json.current_units.temperature_2m,
+              }
               : null;
 
           const windReading =
             typeof json?.current?.wind_speed_10m === 'number' &&
-            typeof json?.current_units?.wind_speed_10m === 'string'
+              typeof json?.current_units?.wind_speed_10m === 'string'
               ? {
-                  value: json.current.wind_speed_10m,
-                  units: json.current_units.wind_speed_10m,
-                }
+                value: json.current.wind_speed_10m,
+                units: json.current_units.wind_speed_10m,
+              }
               : null;
 
           onMarkerUpdate({
@@ -664,14 +1524,31 @@ export function RealtimeVoiceModal({
             properties: {
               lat: { type: 'number', description: 'Latitude' },
               lng: { type: 'number', description: 'Longitude' },
+              latitude: { type: 'number', description: 'Alternate latitude field' },
+              longitude: {
+                type: 'number',
+                description: 'Alternate longitude field',
+              },
+              lon: { type: 'number', description: 'Alternate longitude field' },
             },
-            required: ['lat', 'lng'],
             additionalProperties: false,
           },
         },
         async (args: Record<string, any>) => {
-          const latitude = ensureNumber(args?.lat, 'lat');
-          const longitude = ensureNumber(args?.lng, 'lng');
+          const latitude = ensureNumber(
+            getToolArgValue({
+              args,
+              keys: ['lat', 'latitude'],
+            }),
+            'lat'
+          );
+          const longitude = ensureNumber(
+            getToolArgValue({
+              args,
+              keys: ['lng', 'longitude', 'lon'],
+            }),
+            'lng'
+          );
 
           onMapPositionChange({ lat: latitude, lng: longitude });
 
@@ -694,8 +1571,8 @@ export function RealtimeVoiceModal({
             json?.daily?.precipitation_sum
           )
             ? json.daily.precipitation_sum.map((value: unknown) =>
-                Number(value)
-              )
+              Number(value)
+            )
             : [];
           const timestamps: string[] = Array.isArray(json?.daily?.time)
             ? json.daily.time
@@ -738,28 +1615,63 @@ export function RealtimeVoiceModal({
       client.addTool(
         {
           name: 'map_fly_to',
-          description: 'Centers the wildfire map on the provided coordinates.',
+          description:
+            'Centers the wildfire map. Use lat/lng when available, or provide "place" to geocode and fly.',
           parameters: {
             type: 'object',
             properties: {
               lat: { type: 'number', description: 'Latitude' },
               lng: { type: 'number', description: 'Longitude' },
+              latitude: { type: 'number', description: 'Alternate latitude field' },
+              longitude: {
+                type: 'number',
+                description: 'Alternate longitude field',
+              },
+              lon: { type: 'number', description: 'Alternate longitude field' },
+              place: {
+                type: 'string',
+                description: 'Optional place name used when coordinates are unavailable.',
+              },
               location: {
                 type: 'string',
                 description: 'Optional label for the map marker',
               },
+              destination: {
+                type: 'string',
+                description: 'Alternate place name field for map navigation.',
+              },
+              query: {
+                type: 'string',
+                description: 'Alternate place name field for map navigation.',
+              },
             },
-            required: ['lat', 'lng'],
             additionalProperties: false,
           },
         },
         async (args: Record<string, any>) => {
-          const latitude = ensureNumber(args?.lat, 'lat');
-          const longitude = ensureNumber(args?.lng, 'lng');
+          const place = getPlaceFromToolArgs({ args });
+          if (place) {
+            return flyToPlace({ place });
+          }
+
+          const latitude = ensureNumber(
+            getToolArgValue({
+              args,
+              keys: ['lat', 'latitude'],
+            }),
+            'lat'
+          );
+          const longitude = ensureNumber(
+            getToolArgValue({
+              args,
+              keys: ['lng', 'longitude', 'lon'],
+            }),
+            'lng'
+          );
           const location: string | undefined =
             typeof args?.location === 'string' ? args.location : undefined;
-          onMapPositionChange({ lat: latitude, lng: longitude });
-          onMarkerUpdate({
+
+          applyMapLocation({
             lat: latitude,
             lng: longitude,
             location:
@@ -767,48 +1679,73 @@ export function RealtimeVoiceModal({
                 ? location.trim()
                 : undefined,
           });
+
           return { latitude, longitude, location: location ?? null };
         }
       );
     },
     [
-      onMarkerUpdate,
-      onMapPositionChange,
+      applyObservationDateRange,
+      applyMapLocation,
+      flyToPlace,
       onObservationQueryChange,
       onObservationValueChange,
-      onDateRangeChange,
     ]
   );
 
-  const fetchRelaySession = useCallback(
-    async (sessionConfig: Partial<SessionConfig>) => {
-      const response = await fetch(VOICE_RELAY_ENDPOINT, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: DEFAULT_REALTIME_MODEL,
-          sessionConfig,
-        }),
-      });
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(
-          `Relay request failed (${response.status}): ${errorText}`.trim()
-        );
-      }
-      const session = (await response.json()) as GrowRelaySession & {
-        expiresAt: unknown;
-      };
-      const normalizedSession: GrowRelaySession = {
-        ...session,
-        expiresAt: normalizeExpirationTimestamp(session.expiresAt),
-      };
-      return normalizedSession;
-    },
-    []
-  );
+  const fetchRelaySession = useCallback(async () => {
+    const requestedTools = buildRequiredInteractivityToolDefinitions();
+    const requestedSessionConfig: Partial<SessionConfig> = {
+      instructions: INTERACTIVITY_TOOL_CALL_RULES,
+      tool_choice: 'auto',
+      tools: requestedTools,
+    };
+    logToolTrace({
+      stage: 'relay.session.request_start',
+      details: {
+        tool_names: requestedTools.map((tool) => tool.name),
+      },
+    });
+    const response = await fetch(VOICE_RELAY_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        sessionConfig: requestedSessionConfig,
+      }),
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(
+        `Relay request failed (${response.status}): ${errorText}`.trim()
+      );
+    }
+    const session = (await response.json()) as GrowRelaySession & {
+      expiresAt: unknown;
+    };
+    const normalizedSession: GrowRelaySession = {
+      ...session,
+      expiresAt: normalizeExpirationTimestamp(session.expiresAt),
+    };
+    logToolTrace({
+      stage: 'relay.session.request_success',
+      details: {
+        websocket_url: normalizedSession.websocketUrl,
+        expires_at: normalizedSession.expiresAt,
+        tool_names: Array.isArray(normalizedSession.session?.tools)
+          ? normalizedSession.session.tools
+            .map((tool) =>
+              typeof tool === 'object' && tool !== null && 'name' in tool
+                ? (tool as { name?: unknown }).name
+                : null
+            )
+            .filter((name) => typeof name === 'string')
+          : [],
+      },
+    });
+    return normalizedSession;
+  }, [logToolTrace]);
 
   const stopVoiceSession = useCallback(async () => {
     await teardownVoiceSession();
@@ -856,27 +1793,12 @@ export function RealtimeVoiceModal({
       return;
     }
 
-    const sessionConfig: Partial<SessionConfig> = {
-      modalities: ['text', 'audio'],
-      instructions,
-      voice: 'verse',
-      input_audio_format: 'pcm16',
-      output_audio_format: 'pcm16',
-      input_audio_transcription: { model: 'whisper-1' },
-      turn_detection: {
-        type: 'server_vad',
-        threshold: 0.5,
-        prefix_padding_ms: 300,
-        silence_duration_ms: 200,
-      },
-    };
-
     let relaySession: GrowRelaySession;
     try {
       let candidate: GrowRelaySession | null = null;
       const maxAttempts = 2;
       for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-        const session = await fetchRelaySession(sessionConfig);
+        const session = await fetchRelaySession();
         const expired = hasExpirationElapsed(
           session.expiresAt,
           RELAY_SESSION_EXPIRY_BUFFER_MS
@@ -900,6 +1822,23 @@ export function RealtimeVoiceModal({
       return;
     }
 
+    const relaySessionConfig = extractRelaySessionConfig(relaySession.session);
+    const sessionConfig: Partial<SessionConfig> = {
+      ...relaySessionConfig,
+      instructions: mergeSessionInstructions({
+        baseInstructions: relaySessionConfig.instructions,
+        appendedInstructions: INTERACTIVITY_TOOL_CALL_RULES,
+      }),
+      tool_choice: 'auto',
+    };
+    logToolTrace({
+      stage: 'voice.session.config_prepared',
+      details: {
+        tool_choice: sessionConfig.tool_choice,
+        has_instructions: Boolean(sessionConfig.instructions),
+        tool_names: sessionConfig.tools?.map((tool) => tool.name) ?? [],
+      },
+    });
     const clientSecret =
       typeof relaySession.clientSecret === 'string'
         ? relaySession.clientSecret.trim()
@@ -908,10 +1847,6 @@ export function RealtimeVoiceModal({
       typeof relaySession.websocketUrl === 'string'
         ? relaySession.websocketUrl.trim()
         : '';
-    const targetModel =
-      typeof relaySession.model === 'string' && relaySession.model.trim().length
-        ? relaySession.model.trim()
-        : DEFAULT_REALTIME_MODEL;
 
     if (!clientSecret || !websocketUrl) {
       await teardownVoiceSession({ resetStatus: false });
@@ -926,10 +1861,18 @@ export function RealtimeVoiceModal({
     const client = new RealtimeClient({
       url: websocketUrl,
       apiKey: clientSecret,
-      model: targetModel,
     });
-    configureClientTools(client);
+    logToolTrace({
+      stage: 'voice.session.client_created',
+      details: {
+        websocket_url: websocketUrl,
+      },
+    });
     clientRef.current = client;
+    if (Object.keys(sessionConfig).length > 0) {
+      client.updateSession(sessionConfig);
+    }
+    configureClientTools(client);
 
     const registerHandler = (
       eventName: string,
@@ -946,6 +1889,41 @@ export function RealtimeVoiceModal({
         const next = prev.concat(event);
         return next.length > 200 ? next.slice(next.length - 200) : next;
       });
+      const eventType =
+        typeof event?.event?.type === 'string' ? event.event.type : '';
+      const shouldLogRealtimeEvent =
+        eventType.includes('function_call') ||
+        eventType === 'session.update' ||
+        eventType === 'session.created' ||
+        eventType === 'response.create' ||
+        eventType === 'response.output_item.created' ||
+        eventType === 'response.output_item.added' ||
+        eventType === 'response.output_item.done' ||
+        eventType === 'conversation.item.create' ||
+        eventType === 'conversation.item.done' ||
+        eventType === 'conversation.item.created';
+      if (shouldLogRealtimeEvent) {
+        const rawEvent = event.event as Record<string, unknown>;
+        const item =
+          rawEvent.item &&
+          typeof rawEvent.item === 'object' &&
+          !Array.isArray(rawEvent.item)
+            ? (rawEvent.item as Record<string, unknown>)
+            : null;
+        logToolTrace({
+          stage: 'voice.realtime_event',
+          details: {
+            source: event.source,
+            type: eventType,
+            item_type: item?.type ?? null,
+            item_status: item?.status ?? null,
+            item_name: item?.name ?? null,
+            item_call_id: item?.call_id ?? null,
+            call_id: typeof rawEvent.call_id === 'string' ? rawEvent.call_id : null,
+            item_id: typeof rawEvent.item_id === 'string' ? rawEvent.item_id : null,
+          },
+        });
+      }
     });
 
     registerHandler('conversation.updated', ({ item, delta }) => {
@@ -1000,8 +1978,6 @@ export function RealtimeVoiceModal({
       );
     });
 
-    client.updateSession(sessionConfig);
-
     updateVoiceStatus('connecting');
     try {
       await client.connect();
@@ -1048,6 +2024,7 @@ export function RealtimeVoiceModal({
   }, [
     configureClientTools,
     fetchRelaySession,
+    logToolTrace,
     startVisualization,
     teardownVoiceSession,
     updateVoiceStatus,
@@ -1156,16 +2133,16 @@ export function RealtimeVoiceModal({
           {(isSessionActive ||
             !!realtimeEvents.length ||
             !!conversationItems.length) && (
-            <Button
-              icon={RefreshCw}
-              label="Reset"
-              iconColor={'white'}
-              textStyle={{ color: COLORS.white }}
-              buttonStyle="flush"
-              disabled={!conversationItems.length && !realtimeEvents.length}
-              onClick={resetConversation}
-            />
-          )}
+              <Button
+                icon={RefreshCw}
+                label="Reset"
+                iconColor={'white'}
+                textStyle={{ color: COLORS.white }}
+                buttonStyle="flush"
+                disabled={!conversationItems.length && !realtimeEvents.length}
+                onClick={resetConversation}
+              />
+            )}
         </div>
       </div>
       {voiceError && (
@@ -1207,9 +2184,8 @@ export function RealtimeVoiceModal({
 
   return (
     <div
-      className={`realtime-voice-modal-stack${
-        shouldShowTopVoiceModal ? ' realtime-voice-modal-stack--active' : ''
-      }`}
+      className={`realtime-voice-modal-stack${shouldShowTopVoiceModal ? ' realtime-voice-modal-stack--active' : ''
+        }`}
       data-component="RealtimeVoiceModalStack"
     >
       {topVoiceModal}

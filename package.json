@@ -31,7 +31,10 @@
     "ws": "^8.18.0"
   },
   "scripts": {
-    "start": "rm -rf node_modules/.cache && NODE_OPTIONS='--max-old-space-size=4096' react-app-rewired start",
+    "ensure:sql-wasm": "node ./scripts/ensureSqlWasm.cjs",
+    "prestart": "yarn ensure:sql-wasm",
+    "prebuild": "yarn ensure:sql-wasm",
+    "start": "rm -rf node_modules/.cache && PORT=4317 NODE_OPTIONS='--max-old-space-size=4096' react-app-rewired start",
     "build": "react-app-rewired build",
     "test": "react-app-rewired test",
     "eject": "react-scripts eject",

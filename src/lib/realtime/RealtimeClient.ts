@@ -101,6 +101,93 @@ const DEFAULT_SESSION_CONFIG: SessionConfig = {
 };
 
 const DEFAULT_FREQUENCY = 24_000; // 24kHz matches GPT-4o realtime defaults.
+const TOOL_TRACE_PREFIX = '[VoiceToolTrace]';
+const POST_TOOL_SUCCESS_RESPONSE_INSTRUCTIONS =
+  'The tool call succeeded. Briefly tell the user their request was received and applied. If useful, mention the updated location or date range in one short sentence. Do not call another tool unless the user asks for another action.';
+const POST_TOOL_ERROR_RESPONSE_INSTRUCTIONS =
+  'The tool call failed. Briefly tell the user what went wrong or what information is missing, then ask for the needed detail. Do not call another tool unless the user provides the missing information.';
+const TOOL_EVENT_TYPES_TO_LOG = new Set<string>([
+  'session.created',
+  'session.update',
+  'response.create',
+  'response.output_item.created',
+  'response.output_item.added',
+  'response.output_item.done',
+  'response.function_call_arguments.delta',
+  'response.function_call_arguments.done',
+  'conversation.item.created',
+  'conversation.item.done',
+  'conversation.item.create',
+]);
+
+function truncateForLog(value: string, limit = 300): string {
+  if (value.length <= limit) {
+    return value;
+  }
+  return `${value.slice(0, limit)}...<truncated>`;
+}
+
+function sanitizeForLog(value: unknown, depth = 0): unknown {
+  if (depth > 2) {
+    return '[MaxDepth]';
+  }
+  if (value === null || value === undefined) {
+    return value;
+  }
+  if (typeof value === 'string') {
+    return truncateForLog(value);
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return value;
+  }
+  if (value instanceof Int16Array) {
+    return `[Int16Array length=${value.length}]`;
+  }
+  if (Array.isArray(value)) {
+    return value.slice(0, 8).map((entry) => sanitizeForLog(entry, depth + 1));
+  }
+  if (typeof value === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+      out[key] = sanitizeForLog(entry, depth + 1);
+    }
+    return out;
+  }
+  return String(value);
+}
+
+function summarizeRealtimeEvent(
+  event: RealtimeServerEvent | RealtimeClientEvent
+): Record<string, unknown> {
+  const summary: Record<string, unknown> = {
+    type: event.type,
+    event_id: event.event_id ?? null,
+  };
+  const anyEvent = event as Record<string, unknown>;
+  if (typeof anyEvent.call_id === 'string') {
+    summary.call_id = anyEvent.call_id;
+  }
+  if (typeof anyEvent.response_id === 'string') {
+    summary.response_id = anyEvent.response_id;
+  }
+  if (typeof anyEvent.item_id === 'string') {
+    summary.item_id = anyEvent.item_id;
+  }
+  const item =
+    anyEvent.item && typeof anyEvent.item === 'object' && !Array.isArray(anyEvent.item)
+      ? (anyEvent.item as Record<string, unknown>)
+      : null;
+  if (item) {
+    summary.item_type = item.type ?? null;
+    summary.item_status = item.status ?? null;
+    summary.item_name = item.name ?? null;
+    summary.item_call_id = item.call_id ?? null;
+  }
+  if (typeof anyEvent.delta === 'string' && anyEvent.delta.length) {
+    summary.delta_preview = truncateForLog(anyEvent.delta);
+  }
+  return summary;
+}
 
 class SimpleEventEmitter {
   private listeners: Map<string, Set<EventHandler>> = new Map();
@@ -144,6 +231,7 @@ class ConversationStore {
   private responseLookup = new Map<string, { id: string; output: string[] }>();
   private queuedSpeech = new Map<string, { audio_start_ms: number; audio_end_ms: number; audio?: Int16Array }>();
   private queuedTranscripts = new Map<string, { transcript: string }>();
+  private queuedFunctionArguments = new Map<string, string>();
   private queuedInputAudio: Int16Array | null = null;
 
   clear() {
@@ -152,6 +240,7 @@ class ConversationStore {
     this.responseLookup.clear();
     this.queuedSpeech.clear();
     this.queuedTranscripts.clear();
+    this.queuedFunctionArguments.clear();
     this.queuedInputAudio = null;
   }
 
@@ -174,7 +263,10 @@ class ConversationStore {
   process(event: RealtimeServerEvent, inputAudioBuffer: Int16Array | null): ConversationUpdatePayload {
     switch (event.type) {
       case 'conversation.item.created':
+      case 'conversation.item.added':
         return this.handleItemCreated(event.item);
+      case 'conversation.item.done':
+        return this.handleItemDone(event.item);
       case 'conversation.item.truncated':
         return this.handleItemTruncated(event);
       case 'conversation.item.deleted':
@@ -193,21 +285,29 @@ class ConversationStore {
       case 'response.created':
         this.ensureResponse(event.response);
         return emptyUpdate();
+      case 'response.output_item.created':
+        this.appendResponseOutput(event);
+        return this.handleItemCreated(event.item);
       case 'response.output_item.added':
         this.appendResponseOutput(event);
-        return emptyUpdate();
+        return this.handleItemCreated(event.item);
       case 'response.output_item.done':
-        return this.handleResponseOutputDone(event);
+        return this.handleItemDone(event.item);
       case 'response.content_part.added':
         return this.handleContentPartAdded(event);
       case 'response.audio_transcript.delta':
+      case 'response.output_audio_transcript.delta':
         return this.handleTranscriptDelta(event);
       case 'response.audio.delta':
+      case 'response.output_audio.delta':
         return this.handleAudioDelta(event);
       case 'response.text.delta':
+      case 'response.output_text.delta':
         return this.handleTextDelta(event);
       case 'response.function_call_arguments.delta':
         return this.handleFunctionArgumentsDelta(event);
+      case 'response.function_call_arguments.done':
+        return this.handleFunctionArgumentsDone(event);
       default:
         return emptyUpdate();
     }
@@ -261,13 +361,28 @@ class ConversationStore {
         ensuredItem.status = 'in_progress';
       }
     } else if (ensuredItem.type === 'function_call') {
+      const currentArguments =
+        typeof ensuredItem.formatted.tool?.arguments === 'string'
+          ? ensuredItem.formatted.tool.arguments
+          : '';
+      const rawArguments =
+        typeof clone.arguments === 'string' ? clone.arguments : '';
+      const queuedArguments =
+        typeof ensuredItem.id === 'string'
+          ? this.queuedFunctionArguments.get(ensuredItem.id) ?? ''
+          : '';
+      const nextArguments = currentArguments || rawArguments || queuedArguments;
+      ensuredItem.arguments = nextArguments;
       ensuredItem.status = 'in_progress';
       ensuredItem.formatted.tool = {
         type: 'function',
         name: ensuredItem.name ?? '',
         call_id: ensuredItem.call_id ?? '',
-        arguments: '',
+        arguments: nextArguments,
       };
+      if (typeof ensuredItem.id === 'string') {
+        this.queuedFunctionArguments.delete(ensuredItem.id);
+      }
     } else if (ensuredItem.type === 'function_call_output') {
       ensuredItem.status = 'completed';
       ensuredItem.formatted.output = ensuredItem.output;
@@ -280,6 +395,15 @@ class ConversationStore {
     }
 
     return { item: ensuredItem, delta: null };
+  }
+
+  private handleItemDone(rawItem: any): ConversationUpdatePayload {
+    const item = this.handleItemCreated(rawItem).item;
+    if (!item) {
+      return emptyUpdate();
+    }
+    item.status = 'completed';
+    return { item, delta: null };
   }
 
   private handleItemTruncated(event: any): ConversationUpdatePayload {
@@ -419,14 +543,46 @@ class ConversationStore {
 
   private handleFunctionArgumentsDelta(event: any): ConversationUpdatePayload {
     const item = this.itemLookup.get(event.item_id);
+    const delta = typeof event.delta === 'string' ? event.delta : '';
     if (!item) {
+      if (typeof event.item_id === 'string' && delta.length) {
+        this.queuedFunctionArguments.set(
+          event.item_id,
+          `${this.queuedFunctionArguments.get(event.item_id) ?? ''}${delta}`
+        );
+      }
       return emptyUpdate();
     }
-    item.arguments = (item.arguments ?? '') + event.delta;
+    item.arguments = (item.arguments ?? '') + delta;
     if (item.formatted.tool) {
-      item.formatted.tool.arguments += event.delta;
+      item.formatted.tool.arguments += delta;
     }
-    return { item, delta: { arguments: event.delta } };
+    return { item, delta: { arguments: delta } };
+  }
+
+  private handleFunctionArgumentsDone(event: any): ConversationUpdatePayload {
+    const item = this.itemLookup.get(event.item_id);
+    const finalArguments =
+      typeof event.arguments === 'string' ? event.arguments : null;
+
+    if (!item) {
+      if (typeof event.item_id === 'string' && finalArguments !== null) {
+        this.queuedFunctionArguments.set(event.item_id, finalArguments);
+      }
+      return emptyUpdate();
+    }
+
+    if (finalArguments !== null) {
+      item.arguments = finalArguments;
+      if (item.formatted.tool) {
+        item.formatted.tool.arguments = finalArguments;
+      }
+    }
+
+    return {
+      item,
+      delta: finalArguments !== null ? { arguments: finalArguments } : null,
+    };
   }
 }
 
@@ -444,6 +600,69 @@ export class RealtimeClient extends SimpleEventEmitter {
   private readonly conversationStore = new ConversationStore();
   private readonly toolHandlers = new Map<string, RealtimeToolHandler>();
   private readonly processedToolCallIds = new Set<string>();
+
+  private logToolTrace({
+    stage,
+    details,
+    level = 'info',
+  }: {
+    stage: string;
+    details?: Record<string, unknown>;
+    level?: 'info' | 'warn' | 'error';
+  }) {
+    const payload = details ? sanitizeForLog(details) : undefined;
+    const args: unknown[] = [TOOL_TRACE_PREFIX, stage];
+    if (payload !== undefined) {
+      args.push(payload);
+    }
+    if (level === 'error') {
+      console.error(...args);
+      return;
+    }
+    if (level === 'warn') {
+      console.warn(...args);
+      return;
+    }
+    console.info(...args);
+  }
+
+  private logRealtimeEventIfRelevant({
+    source,
+    event,
+  }: {
+    source: 'client' | 'server';
+    event: RealtimeServerEvent | RealtimeClientEvent;
+  }) {
+    const hasFunctionKeyword = event.type.includes('function_call');
+    const isExplicitType = TOOL_EVENT_TYPES_TO_LOG.has(event.type);
+    const item =
+      typeof (event as Record<string, unknown>).item === 'object' &&
+      !Array.isArray((event as Record<string, unknown>).item) &&
+      (event as Record<string, unknown>).item !== null
+        ? ((event as Record<string, unknown>).item as Record<string, unknown>)
+        : null;
+    const hasFunctionCallItem = item?.type === 'function_call';
+    const isFunctionCallOutput =
+      event.type === 'conversation.item.create' &&
+      item?.type === 'function_call_output';
+
+    if (
+      !hasFunctionKeyword &&
+      !hasFunctionCallItem &&
+      !isExplicitType &&
+      !isFunctionCallOutput
+    ) {
+      return;
+    }
+
+    this.logToolTrace({
+      stage: 'realtime.event',
+      details: {
+        source,
+        ...summarizeRealtimeEvent(event),
+      },
+    });
+  }
 
   constructor({ url, debug = false, apiKey, model }: RealtimeClientOptions = {}) {
     super();
@@ -567,11 +786,23 @@ export class RealtimeClient extends SimpleEventEmitter {
 
   updateSession(partial: Partial<SessionConfig> = {}) {
     this.sessionConfig = { ...this.sessionConfig, ...partial };
+    this.logToolTrace({
+      stage: 'session.update.config_applied',
+      details: {
+        tool_count: this.sessionConfig.tools.length,
+        tool_choice: this.sessionConfig.tool_choice,
+        has_instructions: Boolean(this.sessionConfig.instructions),
+        partial_keys: Object.keys(partial),
+      },
+    });
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
       return;
     }
     const payload = {
-      session: this.sessionConfig,
+      session: {
+        ...this.sessionConfig,
+        type: 'realtime',
+      },
     };
     this.sendEvent('session.update', payload);
   }
@@ -586,6 +817,13 @@ export class RealtimeClient extends SimpleEventEmitter {
       (existing) => existing.name !== normalized.name
     );
     const nextTools = [...filtered, normalized];
+    this.logToolTrace({
+      stage: 'tool.registered',
+      details: {
+        tool_name: normalized.name,
+        tool_count_after: nextTools.length,
+      },
+    });
     this.updateSession({ tools: nextTools });
   }
 
@@ -594,11 +832,22 @@ export class RealtimeClient extends SimpleEventEmitter {
     const nextTools = this.sessionConfig.tools.filter(
       (existing) => existing.name !== name
     );
+    this.logToolTrace({
+      stage: 'tool.removed',
+      details: {
+        tool_name: name,
+        tool_count_after: nextTools.length,
+      },
+    });
     this.updateSession({ tools: nextTools });
   }
 
   clearTools() {
     this.toolHandlers.clear();
+    this.logToolTrace({
+      stage: 'tool.clear_requested',
+      details: { existing_tool_count: this.sessionConfig.tools.length },
+    });
     if (!this.sessionConfig.tools.length) {
       return;
     }
@@ -631,6 +880,10 @@ export class RealtimeClient extends SimpleEventEmitter {
       type,
       ...payload,
     };
+    this.logRealtimeEventIfRelevant({
+      source: 'client',
+      event,
+    });
     this.socket.send(JSON.stringify(event));
     this.emit('realtime.event', {
       time: new Date().toISOString(),
@@ -658,6 +911,10 @@ export class RealtimeClient extends SimpleEventEmitter {
 
     this.emit('realtime.event', {
       time: new Date().toISOString(),
+      source: 'server',
+      event,
+    });
+    this.logRealtimeEventIfRelevant({
       source: 'server',
       event,
     });
@@ -713,12 +970,15 @@ export class RealtimeClient extends SimpleEventEmitter {
     }
   }
 
-  private requestResponse() {
+  private requestResponse(extraInstructions?: string) {
     const responsePayload: Record<string, unknown> = {
       modalities: [...this.sessionConfig.modalities],
     };
-    if (this.sessionConfig.instructions) {
-      responsePayload.instructions = this.sessionConfig.instructions;
+    const instructions = [this.sessionConfig.instructions, extraInstructions]
+      .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+      .join('\n\n');
+    if (instructions) {
+      responsePayload.instructions = instructions;
     }
     this.sendEvent('response.create', {
       response: responsePayload,
@@ -735,7 +995,21 @@ export class RealtimeClient extends SimpleEventEmitter {
     if (!callId || !toolName) {
       return;
     }
+    this.logToolTrace({
+      stage: 'tool.call_received',
+      details: {
+        call_id: callId,
+        tool_name: toolName,
+      },
+    });
     if (this.processedToolCallIds.has(callId)) {
+      this.logToolTrace({
+        stage: 'tool.call_skipped_duplicate',
+        details: {
+          call_id: callId,
+          tool_name: toolName,
+        },
+      });
       return;
     }
     this.processedToolCallIds.add(callId);
@@ -746,32 +1020,83 @@ export class RealtimeClient extends SimpleEventEmitter {
       if (rawArgs) {
         parsedArgs = JSON.parse(rawArgs);
       }
+      this.logToolTrace({
+        stage: 'tool.args_parsed',
+        details: {
+          call_id: callId,
+          tool_name: toolName,
+          args: parsedArgs,
+        },
+      });
     } catch (error) {
+      this.logToolTrace({
+        stage: 'tool.args_parse_failed',
+        level: 'error',
+        details: {
+          call_id: callId,
+          tool_name: toolName,
+          raw_args: toolInfo.arguments ?? null,
+          reason: error instanceof Error ? error.message : String(error ?? 'Unknown error'),
+        },
+      });
       this.sendToolOutput(callId, {
         error: 'Failed to parse tool arguments',
         raw: toolInfo.arguments ?? null,
       });
-      this.safeRequestResponse();
+      this.safeRequestResponse(POST_TOOL_ERROR_RESPONSE_INSTRUCTIONS);
       return;
     }
 
     const handler = this.toolHandlers.get(toolName);
     if (!handler) {
+      this.logToolTrace({
+        stage: 'tool.handler_missing',
+        level: 'error',
+        details: {
+          call_id: callId,
+          tool_name: toolName,
+          registered_tools: [...this.toolHandlers.keys()],
+        },
+      });
       this.sendToolOutput(callId, {
         error: `No tool registered for "${toolName}"`,
       });
-      this.safeRequestResponse();
+      this.safeRequestResponse(POST_TOOL_ERROR_RESPONSE_INSTRUCTIONS);
       return;
     }
 
     let result: unknown;
     try {
+      this.logToolTrace({
+        stage: 'tool.handler_started',
+        details: {
+          call_id: callId,
+          tool_name: toolName,
+        },
+      });
       result = await handler(parsedArgs, { callId, name: toolName });
+      this.logToolTrace({
+        stage: 'tool.handler_succeeded',
+        details: {
+          call_id: callId,
+          tool_name: toolName,
+          result,
+        },
+      });
     } catch (error) {
       const message =
         error instanceof Error ? error.message : String(error ?? 'Unknown error');
+      this.logToolTrace({
+        stage: 'tool.handler_failed',
+        level: 'error',
+        details: {
+          call_id: callId,
+          tool_name: toolName,
+          reason: message,
+        },
+      });
       this.sendToolOutput(callId, { error: message });
-      this.safeRequestResponse();
+      this.safeRequestResponse(POST_TOOL_ERROR_RESPONSE_INSTRUCTIONS);
       return;
     }
 
@@ -780,11 +1105,27 @@ export class RealtimeClient extends SimpleEventEmitter {
     } catch (error) {
       const message =
         error instanceof Error ? error.message : String(error ?? 'Unknown error');
+      this.logToolTrace({
+        stage: 'tool.output_send_failed',
+        level: 'error',
+        details: {
+          call_id: callId,
+          tool_name: toolName,
+          reason: message,
+        },
+      });
       this.debugLog('Failed to send tool output', message);
       return;
     }
 
-    this.safeRequestResponse();
+    this.logToolTrace({
+      stage: 'tool.call_completed',
+      details: {
+        call_id: callId,
+        tool_name: toolName,
+      },
+    });
+    this.safeRequestResponse(POST_TOOL_SUCCESS_RESPONSE_INSTRUCTIONS);
   }
 
   private sendToolOutput(callId: string, payload: unknown) {
@@ -806,6 +1147,13 @@ export class RealtimeClient extends SimpleEventEmitter {
       }
     }
 
+    this.logToolTrace({
+      stage: 'tool.output_sending',
+      details: {
+        call_id: callId,
+        output_preview: output,
+      },
+    });
     this.sendEvent('conversation.item.create', {
       item: {
         type: 'function_call_output',
@@ -815,10 +1163,23 @@ export class RealtimeClient extends SimpleEventEmitter {
     });
   }
 
-  private safeRequestResponse() {
+  private safeRequestResponse(extraInstructions?: string) {
     try {
-      this.requestResponse();
+      this.requestResponse(extraInstructions);
+      this.logToolTrace({
+        stage: 'response.requested_after_tool',
+        details: {
+          has_extra_instructions: Boolean(extraInstructions?.trim()),
+        },
+      });
     } catch (error) {
+      this.logToolTrace({
+        stage: 'response.request_after_tool_failed',
+        level: 'error',
+        details: {
+          reason: error instanceof Error ? error.message : String(error ?? 'Unknown error'),
+        },
+      });
       this.debugLog('Failed to request follow-up response', error);
     }
   }
@@ -847,7 +1208,6 @@ export class RealtimeClient extends SimpleEventEmitter {
     return [
       'realtime',
       `openai-insecure-api-key.${this.apiKey}`,
-      'openai-beta.realtime-v1',
     ];
   }
 }

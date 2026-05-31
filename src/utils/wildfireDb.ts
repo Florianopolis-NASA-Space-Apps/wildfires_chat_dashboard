@@ -4,12 +4,70 @@ import type { BoundingBox } from '../types/geospatial';
 
 const SQLITE_WASM_PATH = '/sql-wasm.wasm';
 const DB_STORAGE_KEY = 'wildfire_sqlite_db_v2';
+const WASM_MAGIC = [0x00, 0x61, 0x73, 0x6d] as const;
 
 let persistenceDisabled = false;
 let quotaWarningLogged = false;
 
 let sqlJsInstance: Promise<SqlJsStatic> | null = null;
 let dbInstance: Promise<Database> | null = null;
+
+function hasWasmMagic(bytes: Uint8Array): boolean {
+  if (bytes.length < 4) return false;
+  return WASM_MAGIC.every((value, index) => bytes[index] === value);
+}
+
+function getWasmCandidateUrls(): string[] {
+  const publicUrl = (process.env.PUBLIC_URL || '').replace(/\/$/, '');
+  const fromPublic = publicUrl
+    ? `${publicUrl}/sql-wasm.wasm`
+    : SQLITE_WASM_PATH;
+
+  return Array.from(
+    new Set([
+      `${fromPublic}?v=${Date.now()}`,
+      `${SQLITE_WASM_PATH}?v=${Date.now()}`,
+      '/static/js/sql-wasm.wasm',
+      '/static/js/sql-wasm.wasm?v=1',
+    ])
+  );
+}
+
+async function fetchValidWasmBinary(): Promise<{ url: string; bytes: Uint8Array }> {
+  const errors: string[] = [];
+
+  for (const candidateUrl of getWasmCandidateUrls()) {
+    try {
+      const response = await fetch(candidateUrl, {
+        method: 'GET',
+        credentials: 'same-origin',
+        cache: 'no-store',
+      });
+
+      if (!response.ok) {
+        errors.push(`${candidateUrl} -> HTTP ${response.status}`);
+        continue;
+      }
+
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      if (!hasWasmMagic(bytes)) {
+        const preview = Array.from(bytes.slice(0, 4))
+          .map((value) => value.toString(16).padStart(2, '0'))
+          .join(' ');
+        errors.push(`${candidateUrl} -> invalid magic bytes: ${preview}`);
+        continue;
+      }
+
+      return { url: candidateUrl, bytes };
+    } catch (error) {
+      errors.push(`${candidateUrl} -> ${String(error)}`);
+    }
+  }
+
+  throw new Error(
+    `Unable to load a valid sql.js WebAssembly binary. Attempts: ${errors.join(' | ')}`
+  );
+}
 
 function getStorage(): Storage | null {
   if (typeof window === 'undefined') return null;
@@ -46,14 +104,18 @@ function uint8ArrayToBase64(bytes: Uint8Array): string {
 
 async function loadSqlJs(): Promise<SqlJsStatic> {
   if (!sqlJsInstance) {
-    sqlJsInstance = initSqlJs({
-      locateFile: (file: string) => {
-        if (file === 'sql-wasm.wasm') {
-          return SQLITE_WASM_PATH;
-        }
-        return `/${file}`;
-      },
-    });
+    sqlJsInstance = (async () => {
+      const wasm = await fetchValidWasmBinary();
+      return initSqlJs({
+        locateFile: (file: string) => {
+          if (file === 'sql-wasm.wasm') {
+            return wasm.url;
+          }
+          return `/${file}`;
+        },
+        wasmBinary: wasm.bytes,
+      });
+    })();
   }
   return sqlJsInstance;
 }

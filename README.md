@@ -42,7 +42,7 @@ REACT_APP_NASA_MAP_KEY="your_firms_map_key"
 ## 🚀 Run It Locally
 
 1. 📦 Install dependencies: `yarn install`
-2. ▶️ Start the React dev server: `yarn start` (launches `http://localhost:3000`)
+2. ▶️ Start the React dev server: `yarn start` (launches `http://localhost:4317`)
 3. 🔊 Voice assistant sessions are brokered through our private server endpoint `/api/grow/relay`, keeping OpenAI credentials on the server.
 4. 🗞️ Switch the “LIVE” toggle to trigger fresh NASA downloads (first fetch may take a few seconds while CSV data parses).
 
