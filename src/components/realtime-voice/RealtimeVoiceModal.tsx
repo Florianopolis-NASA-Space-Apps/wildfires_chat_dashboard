@@ -44,7 +44,7 @@ const CONVERSATION_STARTERS = [
   '🗓️ Change the dates to January 6th - January 8th',
 ];
 
-const PROD_BASE_URL = 'https://api-dev.apps.archlife';
+const PROD_BASE_URL = 'https://api.apps.archlife.org';
 const DEV_BASE_URL = 'http://localhost:4317';
 const VOICE_RELAY_ENDPOINT = `${PROD_BASE_URL}/api/grow/relay`;
 const RELAY_SESSION_EXPIRY_BUFFER_MS = 5_000;
