@@ -32,8 +32,10 @@
   },
   "scripts": {
     "ensure:sql-wasm": "node ./scripts/ensureSqlWasm.cjs",
-    "prestart": "yarn ensure:sql-wasm",
-    "prebuild": "yarn ensure:sql-wasm",
+    "ensure:mapbox-worker": "node ./scripts/ensureMapboxWorker.cjs",
+    "ensure:assets": "yarn ensure:sql-wasm && yarn ensure:mapbox-worker",
+    "prestart": "yarn ensure:assets",
+    "prebuild": "yarn ensure:assets",
     "start": "rm -rf node_modules/.cache && PORT=4317 NODE_OPTIONS='--max-old-space-size=4096' react-app-rewired start",
     "build": "react-app-rewired build",
     "test": "react-app-rewired test",

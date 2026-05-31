@@ -49,3 +49,9 @@ declare module 'sql.js' {
 
   export default function initSqlJs(config?: InitConfig): Promise<SqlJsStatic>;
 }
+
+declare module 'mapbox-gl/dist/mapbox-gl-csp' {
+  import mapboxgl from 'mapbox-gl';
+
+  export default mapboxgl;
+}

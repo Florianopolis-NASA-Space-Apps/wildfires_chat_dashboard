@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
-import mapboxgl from 'mapbox-gl';
+import mapboxgl from 'mapbox-gl/dist/mapbox-gl-csp';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import type { FeatureCollection } from 'geojson';
 import { apiWildfires } from '../../utils/apiWildfires';
@@ -7,6 +7,7 @@ import { readCountriesGeoJson } from '../../utils/wildfireDb';
 import { COLORS } from '../../constants/colors';
 
 const MAPBOX_KEY = process.env.REACT_APP_MAPBOX_KEY || '';
+const MAPBOX_WORKER_URL = `${process.env.PUBLIC_URL || ''}/mapbox-gl-csp-worker.js`;
 
 export interface IMapCoords {
   lat: number;
@@ -327,6 +328,7 @@ export const MBox = ({
 
   useEffect(() => {
     mapboxgl.accessToken = MAPBOX_KEY;
+    mapboxgl.workerUrl = MAPBOX_WORKER_URL;
     if (mapContainerRef.current) {
       mapRef.current = new mapboxgl.Map({
         container: mapContainerRef.current,
