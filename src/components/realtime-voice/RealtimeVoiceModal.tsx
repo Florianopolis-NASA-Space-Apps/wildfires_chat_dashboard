@@ -44,7 +44,7 @@ const CONVERSATION_STARTERS = [
   '🗓️ Change the dates to January 6th - January 8th',
 ];
 
-const PROD_BASE_URL = 'http://localhost:3000';
+const PROD_BASE_URL = 'https://api-dev.apps.archlife';
 const DEV_BASE_URL = 'http://localhost:4317';
 const VOICE_RELAY_ENDPOINT = `${PROD_BASE_URL}/api/grow/relay`;
 const RELAY_SESSION_EXPIRY_BUFFER_MS = 5_000;
@@ -1906,8 +1906,8 @@ export function RealtimeVoiceModal({
         const rawEvent = event.event as Record<string, unknown>;
         const item =
           rawEvent.item &&
-          typeof rawEvent.item === 'object' &&
-          !Array.isArray(rawEvent.item)
+            typeof rawEvent.item === 'object' &&
+            !Array.isArray(rawEvent.item)
             ? (rawEvent.item as Record<string, unknown>)
             : null;
         logToolTrace({
