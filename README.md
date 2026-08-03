@@ -25,7 +25,7 @@ Global Recovery and Observation of Wildfires (GROW) is an AI-assisted wildfire i
 
 ## ⚙️ Prerequisites
 
-- Node.js ≥ 18 and Yarn (recommended) or npm.
+- Node.js 24 (use `nvm use`) and Yarn 1.22.22.
 - Mapbox access token with Maps SDK enabled.
 - NASA FIRMS “map key” for the Area API (request at [firms.modaps.eosdis.nasa.gov](https://firms.modaps.eosdis.nasa.gov/api/)).
 - Voice assistant access is provided through the hosted relay (no local OpenAI key required).
@@ -41,10 +41,11 @@ REACT_APP_NASA_MAP_KEY="your_firms_map_key"
 
 ## 🚀 Run It Locally
 
-1. 📦 Install dependencies: `yarn install`
-2. ▶️ Start the React dev server: `yarn start` (launches `http://localhost:4317`)
-3. 🔊 Voice assistant sessions are brokered through our private server endpoint `/api/grow/relay`, keeping OpenAI credentials on the server.
-4. 🗞️ Switch the “LIVE” toggle to trigger fresh NASA downloads (first fetch may take a few seconds while CSV data parses).
+1. 🟢 Select Node.js 24: `nvm install && nvm use`
+2. 📦 Install dependencies: `yarn install --frozen-lockfile`
+3. ▶️ Start the React dev server: `yarn start` (launches `http://localhost:4317`)
+4. 🔊 Voice assistant sessions are brokered through our private server endpoint `/api/grow/relay`, keeping OpenAI credentials on the server.
+5. 🗞️ Switch the “LIVE” toggle to trigger fresh NASA downloads (first fetch may take a few seconds while CSV data parses).
 
 ## 🧪 Testing & Quality
 

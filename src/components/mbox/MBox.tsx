@@ -6,7 +6,7 @@ import { apiWildfires } from '../../utils/apiWildfires';
 import { readCountriesGeoJson } from '../../utils/wildfireDb';
 import { COLORS } from '../../constants/colors';
 
-const MAPBOX_KEY = process.env.REACT_APP_MAPBOX_KEY || '';
+const MAPBOX_KEY = process.env.REACT_APP_MAPBOX_KEY?.trim() || '';
 const MAPBOX_WORKER_URL = `${process.env.PUBLIC_URL || ''}/mapbox-gl-csp-worker.js`;
 
 export interface IMapCoords {
@@ -62,6 +62,7 @@ export const MBox = ({
   const rotationLastTimestampRef = useRef<number | null>(null);
   const isRotationActiveRef = useRef(false);
   const [isMapReady, setIsMapReady] = useState(false);
+  const [mapError, setMapError] = useState<string | null>(null);
 
   const updateObservationCount = useCallback(
     (collection: FeatureCollection | null | undefined) => {
@@ -327,19 +328,35 @@ export const MBox = ({
   );
 
   useEffect(() => {
+    if (!MAPBOX_KEY) {
+      setMapError(
+        'Map unavailable: set REACT_APP_MAPBOX_KEY in .env and restart the app.'
+      );
+      setIsLoading(false);
+      return;
+    }
+
     mapboxgl.accessToken = MAPBOX_KEY;
     mapboxgl.workerUrl = MAPBOX_WORKER_URL;
     if (mapContainerRef.current) {
-      mapRef.current = new mapboxgl.Map({
-        container: mapContainerRef.current,
-        style: 'mapbox://styles/mapbox/dark-v10',
-        attributionControl: false,
-        center: [P2COORDS.lng, P2COORDS.lat],
-        zoom: DEFAULT_GLOBAL_ZOOM,
-        pitch: 0,
-        bearing: 0,
-        projection: { name: 'globe' },
-      });
+      try {
+        mapRef.current = new mapboxgl.Map({
+          container: mapContainerRef.current,
+          style: 'mapbox://styles/mapbox/dark-v10',
+          attributionControl: false,
+          center: [P2COORDS.lng, P2COORDS.lat],
+          zoom: DEFAULT_GLOBAL_ZOOM,
+          pitch: 0,
+          bearing: 0,
+          projection: { name: 'globe' },
+        });
+      } catch (error) {
+        console.error('Failed to initialize Mapbox:', error);
+        mapContainerRef.current.replaceChildren();
+        setMapError('Map unavailable: Mapbox could not be initialized.');
+        setIsLoading(false);
+        return;
+      }
       mapRef.current.addControl(
         new mapboxgl.NavigationControl({ visualizePitch: true }),
         'top-right'
@@ -366,6 +383,7 @@ export const MBox = ({
       markerRef.current?.remove();
       popupRef.current?.remove();
       mapRef.current && mapRef.current.remove();
+      mapRef.current = null;
       markerRef.current = null;
       popupRef.current = null;
       isRotationActiveRef.current = false;
@@ -603,12 +621,22 @@ export const MBox = ({
           'radial-gradient(circle at 20% 20%, rgba(14, 165, 233, 0.12), rgba(15, 23, 42, 0.06) 48%, rgba(15, 23, 42, 0) 80%)',
       }}
     >
-      <div
-        id="map-container"
-        ref={mapContainerRef}
-        className="h-full w-full"
-        style={{ backgroundColor: COLORS.slate900 }}
-      />
+      {mapError ? (
+        <div
+          className="flex h-full w-full items-center justify-center px-6 text-center"
+          role="alert"
+          style={{ backgroundColor: COLORS.slate900, color: COLORS.white }}
+        >
+          {mapError}
+        </div>
+      ) : (
+        <div
+          id="map-container"
+          ref={mapContainerRef}
+          className="h-full w-full"
+          style={{ backgroundColor: COLORS.slate900 }}
+        />
+      )}
     </div>
   );
 };
